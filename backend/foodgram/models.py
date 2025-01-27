@@ -37,6 +37,7 @@ class Recipe(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE,
                                verbose_name='Автор')
     title = models.CharField(max_length=100, verbose_name='Название')
+    slug = models.SlugField(unique=True)
     image = models.ImageField(upload_to='foodgram/', verbose_name='Фото')
     description = models.TextField('Описание')
     cooking_time = models.PositiveIntegerField(
@@ -57,6 +58,10 @@ class Recipe(models.Model):
 
     def __str__(self):
         return f'{self.author} - {self.title[:21]}'
+
+    @property
+    def favorites_count(self):
+        return Favorites.objects.filter(recipe=self).count()
 
 
 class RecipeIngredients(models.Model):
