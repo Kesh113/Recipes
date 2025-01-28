@@ -11,18 +11,22 @@ class UsersAdmin(UserAdmin):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author')
-    list_display_links = ('title',)
-    search_fields = ('author', 'title')
-    prepopulated_fields = {'slug': ('title',)}
+    list_display = ('name', 'author')
+    list_display_links = ('name',)
+    search_fields = ('author', 'name')
     list_filter = ('tags',)
-    readonly_fields = ('favorites_count',)
+    readonly_fields = ('get_favorites_count',)
+
+    def get_favorites_count(self, obj):
+        return Favorites.objects.filter(recipe=obj).count()
+
+    get_favorites_count.short_description = 'Количество добавлений в избранное'
 
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
-    list_display = ('title', 'measure_unit')
-    search_fields = ('title',)
+    list_display = ('name', 'measurement_unit')
+    search_fields = ('name',)
 
 
 admin.site.register([Tag, RecipeIngredients, Favorites, Follow, ShoppingList])
