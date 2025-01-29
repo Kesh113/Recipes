@@ -7,7 +7,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ('foodgram', '0002_auto_20250127_1523'),
     ]
 
@@ -21,7 +20,7 @@ class Migration(migrations.Migration):
             options={'verbose_name': 'Подписка', 'verbose_name_plural': 'Подписки'},
         ),
         migrations.AlterModelOptions(
-            name='shoppinglist',
+            name='shoppingcart',
             options={'verbose_name': 'Покупки', 'verbose_name_plural': 'Покупка'},
         ),
         migrations.AddField(
@@ -36,7 +35,7 @@ class Migration(migrations.Migration):
             field=models.PositiveIntegerField(help_text='в минутах', verbose_name='Время приготовления'),
         ),
         migrations.AlterUniqueTogether(
-            name='shoppinglist',
+            name='shoppingcart',
             unique_together={('user', 'recipe')},
         ),
     ]

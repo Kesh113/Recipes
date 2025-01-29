@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -55,8 +54,10 @@ class Recipe(models.Model):
         through='RecipeIngredients'
     )
     tags = models.ManyToManyField(Tag, verbose_name='Список тэгов')
-    is_favorited = models.BooleanField(default=False)
-    is_in_shopping_cart = models.BooleanField(default=False)
+    favorites_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Количество добавлений в избранное'
+    )
 
     class Meta:
         verbose_name = 'Рецепт'
@@ -69,12 +70,12 @@ class Recipe(models.Model):
 
 
 class RecipeIngredients(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='recipe_ingredients')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
-    quantity = models.DecimalField(max_digits=5, decimal_places=2)
+    amount = models.DecimalField(max_digits=5, decimal_places=2)
 
     def __str__(self):
-        return (f'{self.ingredient.name} - {self.quantity} '
+        return (f'{self.ingredient.name} - {self.amount} '
                 f'{self.ingredient.measurement_unit}')
 
     class Meta:
@@ -87,6 +88,7 @@ class Favorites(models.Model):
                              related_name='favorite_recipes')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='users_favorite')
+    is_favorited = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Избранное'
@@ -97,34 +99,16 @@ class Favorites(models.Model):
         return f'У {self.user.username} в избранном {self.recipe}'
 
 
-class Follow(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE,
-                             related_name='followers')
-    following = models.ForeignKey(User, on_delete=models.CASCADE,
-                                  related_name='followings')
-
-    class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
-        unique_together = ('user', 'following')
-
-    def __str__(self):
-        return f'{self.user.username} подписан на {self.following.username}'
-
-    def clean(self):
-        if self.user == self.following:
-            raise ValidationError('Нельзя подписаться на самого себя.')
-
-
-class ShoppingList(models.Model):
+class ShoppingCart(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='shopping_list_recipes')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='users_shopping_list')
+    is_in_shopping_cart = models.BooleanField(default=False)
 
     class Meta:
-        verbose_name = 'Покупки'
-        verbose_name_plural = 'Покупка'
+        verbose_name = 'Списки покупок'
+        verbose_name_plural = 'Список покупок'
         unique_together = ('user', 'recipe')
 
     def __str__(self):

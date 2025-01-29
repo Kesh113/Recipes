@@ -1,12 +1,8 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-
-from .models import (Favorites, Follow, Ingredient, Recipe,
-                     RecipeIngredients, ShoppingList, Tag)
 
 
-class UsersAdmin(UserAdmin):
-    search_fields = ('email', 'username')
+from .models import (Favorites, Ingredient, Recipe,
+                     RecipeIngredients, ShoppingCart, Tag)
 
 
 @admin.register(Recipe)
@@ -15,12 +11,7 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display_links = ('name',)
     search_fields = ('author', 'name')
     list_filter = ('tags',)
-    readonly_fields = ('get_favorites_count',)
-
-    def get_favorites_count(self, obj):
-        return Favorites.objects.filter(recipe=obj).count()
-
-    get_favorites_count.short_description = 'Количество добавлений в избранное'
+    readonly_fields = 'favorites_count',
 
 
 @admin.register(Ingredient)
@@ -29,4 +20,4 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
-admin.site.register([Tag, RecipeIngredients, Favorites, Follow, ShoppingList])
+admin.site.register([Tag, RecipeIngredients, Favorites, ShoppingCart])

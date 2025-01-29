@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
+from datetime import timedelta
 import os
 from pathlib import Path
 
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework',
     'djoser',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -158,3 +160,15 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 6,
 
 }
+
+
+DJOSER = {
+    'SERIALIZERS': {
+        'user_create': 'api.serializers.UserSerializer',
+    },
+}
+
+
+AUTH_USER_MODEL = 'users.FoodgramUser'
+
+USERNAME_RESERVED = 'me'
