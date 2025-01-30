@@ -1,6 +1,9 @@
+import base64
+
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from rest_framework import serializers
-from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer
+from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 
 from foodgram.models import Ingredient, Recipe, RecipeIngredients, Tag, Favorites
 
@@ -26,6 +29,17 @@ class TagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+
+            data = ContentFile(base64.b64decode(imgstr), name='image.' + ext)
+
+        return super().to_internal_value(data)
+
+
 class RecipeIngredientsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipeIngredients
@@ -33,13 +47,19 @@ class RecipeIngredientsSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    author = UserSerializer()
-    tags = TagSerializer(many=True)
-    ingredients = IngredientSerializer(many=True)
+    author = UserSerializer(read_only=True)
+    tags = TagSerializer(read_only=True, many=True)
+    ingredients = IngredientSerializer(read_only=True, many=True)
+    image = Base64ImageField(required=True)
 
     class Meta:
         model = Recipe
         exclude = 'pub_date',
+
+    def to_representation(self, instance):
+        recipe_data = super().to_representation(instance)
+        recipe_data.pop('favorites_count')
+        return recipe_data
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
@@ -52,28 +72,23 @@ class FavoriteSerializer(serializers.ModelSerializer):
         return recipe_data
 
 
-# class UserSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = (
-#             'id', 'username', 'email', 'first_name', 'last_name', 'avatar'
-#         )
-
-#     def to_representation(self, instance):
-#         # Получаем стандартное представление
-#         representation = super().to_representation(instance)
-#         # Если метод запроса не POST, убираем 'avatar'
-#         if self.context.get('request') and self.context['request'].method == 'POST':
-#             representation.pop('avatar', None)
-#         return representation
-
-
-class UserSerializer(DjoserUserCreateSerializer):
+class UserCreateSerializer(DjoserUserCreateSerializer):
     class Meta(DjoserUserCreateSerializer.Meta):
-        fields = DjoserUserCreateSerializer.Meta.fields + ('first_name', 'last_name')
+        fields = DjoserUserCreateSerializer.Meta.fields + (
+            'username', 'first_name', 'last_name'
+        )
+
+
+class UserSerializer(DjoserUserSerializer):
+    class Meta(DjoserUserSerializer.Meta):
+        fields = DjoserUserSerializer.Meta.fields + (
+            'username', 'first_name', 'last_name', 'avatar'
+        )
 
 
 class UserAvatarSerializer(serializers.ModelSerializer):
+    avatar = Base64ImageField(required=True)
+
     class Meta:
         model = User
         fields = ('avatar',)
