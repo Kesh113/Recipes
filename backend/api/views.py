@@ -2,9 +2,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from djoser.views import UserViewSet
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import CreateAPIView, DestroyAPIView, UpdateAPIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet, ViewSetMixin
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
@@ -13,13 +15,12 @@ from rest_framework.settings import api_settings
 from djoser.permissions import CurrentUserOrAdmin
 
 from .filters import RecipeFilter
-from .serializers import FavoriteSerializer, IngredientSerializer, TagSerializer, RecipeSerializer, UserAvatarSerializer, UserSerializer
+from .serializers import FavoriteSerializer, SubscribeSerializer, IngredientSerializer, TagSerializer, RecipeSerializer, UserAvatarSerializer, UserSerializer, CreateSubscribeSerializer
 from foodgram.models import Ingredient, Tag, Recipe
+from users.models import Follow
 
 
 User = get_user_model()
-
-USER_AVATAR = f'me/avatar'
 
 
 class IngredientViewSet(ReadOnlyModelViewSet):
@@ -42,6 +43,15 @@ class RecipeViewSet(ModelViewSet):
     permission_classes = IsAuthenticatedOrReadOnly,
     filter_backends = DjangoFilterBackend,
     filterset_class = RecipeFilter
+
+    def list(self, request, *args, **kwargs):
+        recipes = self.filter_queryset(self.get_queryset())
+        limit = request.query_params.get('limit')
+        if limit:
+            recipes = recipes[:int(limit)]
+        page = self.paginate_queryset(recipes)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -68,13 +78,53 @@ class UserViewSet(UserViewSet):
     )
     def me_avatar(self, request):
         user = request.user
-
         if request.method == 'PUT':
             serializer = UserAvatarSerializer(user, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         user.avatar.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='subscriptions',
+    )
+    def subscriptions(self, request):
+        followings = User.objects.filter(followings__user=request.user)
+        limit = request.query_params.get('limit')
+        if limit:
+            followings = followings[:int(limit)]
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(followings, request)
+        serializer = SubscribeSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class SubscribeViewSet(ViewSetMixin, CreateAPIView, DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = CreateSubscribeSerializer
+    permission_classes = IsAuthenticated,
+
+    def get_object(self):
+        return get_object_or_404(User, id=self.kwargs['user_id'])
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data={'id': self.kwargs['user_id']}, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        following = self.get_object()
+        try:
+            Follow.objects.get(
+                user=request.user, following=following
+            ).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Follow.DoesNotExist:
+            return Response(
+                {'subscribed': 'Вы не подписаны на этого пользователя'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

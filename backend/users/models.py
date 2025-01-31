@@ -36,13 +36,11 @@ class Follow(models.Model):
                              related_name='followers')
     following = models.ForeignKey(FoodgramUser, on_delete=models.CASCADE,
                                   related_name='followings')
-    is_subscribed = models.BooleanField(default=False, db_index=True, verbose_name='Подписан')
 
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
         unique_together = ('user', 'following')
-        ordering = '-is_subscribed',
 
     def __str__(self):
         return f'{self.user.username} подписан на {self.following.username}'
