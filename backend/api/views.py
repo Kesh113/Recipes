@@ -1,3 +1,4 @@
+from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -7,16 +8,22 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.generics import CreateAPIView, DestroyAPIView, UpdateAPIView
+from rest_framework.generics import CreateAPIView, DestroyAPIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet, ViewSetMixin
+from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from djoser.permissions import CurrentUserOrAdmin
 
+from .permissions import IsAuthorOrReadOnly
 from .filters import RecipeFilter
-from .serializers import FavoriteSerializer, SubscribeSerializer, IngredientSerializer, TagSerializer, RecipeSerializer, UserAvatarSerializer, UserSerializer, CreateSubscribeSerializer
-from foodgram.models import Ingredient, Tag, Recipe
+from .serializers import (
+    FavoriteSerializer, SubscribeSerializer, IngredientSerializer,
+    TagSerializer, ReadRecipeSerializer, UserAvatarSerializer, UserSerializer,
+    CreateSubscribeSerializer, WriteRecipeSerializer, TokenSerializer
+)
+from foodgram.models import Ingredient, Tag, Recipe, Tokens
 from users.models import Follow
 
 
@@ -39,10 +46,17 @@ class TagViewSet(ReadOnlyModelViewSet):
 
 class RecipeViewSet(ModelViewSet):
     queryset = Recipe.objects.all()
-    serializer_class = RecipeSerializer
-    permission_classes = IsAuthenticatedOrReadOnly,
+    permission_classes = IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly
     filter_backends = DjangoFilterBackend,
     filterset_class = RecipeFilter
+    http_method_names = (
+        'get', 'post', 'patch', 'delete', 'head', 'options', 'trace'
+    )
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return ReadRecipeSerializer
+        return WriteRecipeSerializer
 
     def list(self, request, *args, **kwargs):
         recipes = self.filter_queryset(self.get_queryset())
@@ -55,6 +69,10 @@ class RecipeViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = False
+        return self.update(request, *args, **kwargs)
 
 
 class FavoriteViewSet(ViewSetMixin, CreateAPIView, DestroyAPIView):
@@ -128,3 +146,16 @@ class SubscribeViewSet(ViewSetMixin, CreateAPIView, DestroyAPIView):
                 {'subscribed': 'Вы не подписаны на этого пользователя'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class GetLinkView(APIView):
+    http_method_names = ['get', 'head', 'options', 'trace']
+
+    def get(self, request, recipe_id):
+        recipe_url = request.build_absolute_uri(reverse('recipes-detail', args=[recipe_id]))
+        serializer = TokenSerializer(data={'full_url': recipe_url})
+        serializer.is_valid(raise_exception=True)
+        token = serializer.create(
+            validated_data=serializer.validated_data
+        )
+        return Response(TokenSerializer(token).data, status=status.HTTP_200_OK)

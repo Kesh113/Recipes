@@ -1,3 +1,6 @@
+from decimal import Decimal
+import random
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -41,7 +44,6 @@ class Recipe(models.Model):
     image = models.ImageField(upload_to='foodgram/', verbose_name='Фото')
     text = models.TextField('Описание')
     cooking_time = models.PositiveIntegerField(
-        default=1,
         validators=[MinValueValidator(1)],
         verbose_name='Время приготовления',
         help_text='в минутах'
@@ -72,7 +74,11 @@ class Recipe(models.Model):
 class RecipeIngredients(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт', related_name='recipe_ingredients')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент')
-    amount = models.DecimalField(max_digits=5, decimal_places=2, verbose_name='Количество')
+    amount = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(Decimal('1.00'))],
+        verbose_name='Количество'
+    )
 
     def __str__(self):
         return (f'{self.ingredient.name} - {self.amount} '
@@ -113,3 +119,36 @@ class ShoppingCart(models.Model):
 
     def __str__(self):
         return f'У {self.user.username} в списке покупок {self.recipe}'
+
+
+class Tokens(models.Model):
+    full_url = models.URLField(unique=True)
+    short_link = models.URLField(
+        unique=True,
+        db_index=True,
+        blank=True
+    )
+    requests_count = models.IntegerField(default=0)
+    created_date = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('-created_date',)
+
+    def save(self, *args, **kwargs):
+        if not self.short_link:
+            while True:
+                self.short_link = settings.SITE_URL + ''.join(
+                    random.choices(
+                        settings.CHARACTERS,
+                        k=settings.TOKEN_LENGTH
+                    )
+                )
+                if not Tokens.objects.filter(
+                    short_link=self.short_link
+                ).exists():
+                    break
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f'{self.short_link} -> {self.full_url}'

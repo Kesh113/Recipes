@@ -1,12 +1,15 @@
 import base64
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers
+from rest_framework import serializers, status
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
+from django.core.validators import MinValueValidator
 
-from foodgram.models import Ingredient, Recipe, RecipeIngredients, Tag, Favorites
+from foodgram.models import Ingredient, Recipe, RecipeIngredients, Tag, Favorites, Tokens
 from users.models import Follow
 
 
@@ -78,7 +81,7 @@ class UserAvatarSerializer(serializers.ModelSerializer):
         fields = ('avatar',)
 
 
-class RecipeSerializer(serializers.ModelSerializer):
+class ReadRecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     tags = TagSerializer(read_only=True, many=True)
     ingredients = serializers.SerializerMethodField()
@@ -100,6 +103,95 @@ class RecipeSerializer(serializers.ModelSerializer):
             ingredient_data['amount'] = item.amount
             ingredients.append(ingredient_data)
         return ingredients
+
+
+class IngredientWriteSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+
+
+class TagWriteSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+
+
+class WriteRecipeSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+    tags = serializers.ListField(child=serializers.IntegerField(), write_only=True)
+    image = Base64ImageField(required=True)
+    ingredients = serializers.ListField(child=IngredientWriteSerializer(), write_only=True)
+
+    class Meta:
+        model = Recipe
+        exclude = 'pub_date',
+
+    def to_representation(self, instance):
+        recipe_data = super().to_representation(instance)
+        recipe_data.pop('favorites_count')
+        ingredients = []
+        for item in instance.recipe_ingredients.all():
+            ingredient_data = IngredientSerializer(item.ingredient).data
+            ingredient_data['amount'] = item.amount
+            ingredients.append(ingredient_data)
+        recipe_data['ingredients'] = ingredients
+        recipe_data['tags'] = TagSerializer(instance.tags.all(), many=True).data
+        return recipe_data
+
+    def validate_ingredients(self, value):
+        if not value:
+            raise serializers.ValidationError('Поле обязательно для заполнения')
+        ingredient_ids = [item['id'] for item in value]
+        if len(ingredient_ids) != len(set(ingredient_ids)):
+            raise serializers.ValidationError('Ингредиенты не должны повторяться.')
+        for item in value:
+            if not Ingredient.objects.filter(id=item['id']).exists():
+                raise serializers.ValidationError(f'Ингредиента с id={item["id"]} не существует.')
+        return value
+
+    def validate_tags(self, value):
+        if not value:
+            raise serializers.ValidationError('Поле tags обязательно.')
+        tag_ids = [item for item in value]
+        if len(tag_ids) != len(set(tag_ids)):
+            raise serializers.ValidationError('Тэги не должны повторяться.')
+        for item in value:
+            if not Tag.objects.filter(id=item).exists():
+                raise serializers.ValidationError(f'Тэга с id={item} не существует.')
+        return value
+
+    def create(self, validated_data):
+        ingredients = validated_data.pop('ingredients')
+        tags_data = validated_data.pop('tags')
+        recipe = Recipe(**validated_data)
+        try:
+            recipe.full_clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
+        recipe.save()
+        for ingredient_data in ingredients:
+            ingredient = Ingredient.objects.get(pk=ingredient_data['id'])
+            amount = ingredient_data['amount']
+            RecipeIngredients.objects.create(recipe=recipe, ingredient=ingredient, amount=amount)
+        tags = Tag.objects.filter(pk__in=tags_data)
+        recipe.tags.set(tags)
+        return recipe
+
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop('ingredients', None)
+        tags_data = validated_data.pop('tags', None)
+        try:
+            super().update(instance, validated_data)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
+        if ingredients is not None:
+            instance.recipe_ingredients.all().delete()
+            for ingredient_data in ingredients:
+                ingredient = Ingredient.objects.get(pk=ingredient_data['id'])
+                amount = ingredient_data['amount']
+                RecipeIngredients.objects.create(recipe=instance, ingredient=ingredient, amount=amount)
+        if tags_data is not None:
+            tags = Tag.objects.filter(pk__in=tags_data)
+            instance.tags.set(tags)
+        return instance
 
 
 class SubscribeSerializer(serializers.Serializer):
@@ -156,3 +248,19 @@ class CreateSubscribeSerializer(serializers.Serializer):
         serialized_recipes = self._get_serialized_recipes(user)
         data.update({'recipes': serialized_recipes, 'recipes_count': len(serialized_recipes)})
         return data
+
+
+class TokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tokens
+        fields = '__all__'
+        extra_kwargs = {'full_url': {'validators': []}}
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return {'short-link': representation['short_link']}
+
+    def create(self, validated_data):
+        full_url = validated_data['full_url']
+        token, _ = Tokens.objects.get_or_create(full_url=full_url)
+        return token
