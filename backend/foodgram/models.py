@@ -89,12 +89,11 @@ class RecipeIngredients(models.Model):
         verbose_name_plural = 'Количество ингредиентов'
 
 
-class Favorites(models.Model):
+class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='favorite_recipes')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='users_favorite')
-    is_favorited = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Избранное'
@@ -107,10 +106,9 @@ class Favorites(models.Model):
 
 class ShoppingCart(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
-                             related_name='shopping_list_recipes')
+                             related_name='shopping_cart_recipes')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
-                               related_name='users_shopping_list')
-    is_in_shopping_cart = models.BooleanField(default=False)
+                               related_name='users_shopping_cart')
 
     class Meta:
         verbose_name = 'Списки покупок'

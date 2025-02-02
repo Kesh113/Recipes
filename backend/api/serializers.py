@@ -9,7 +9,7 @@ from rest_framework import serializers, status
 from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer, UserSerializer as DjoserUserSerializer
 from django.core.validators import MinValueValidator
 
-from foodgram.models import Ingredient, Recipe, RecipeIngredients, Tag, Favorites, Tokens
+from foodgram.models import Favorite, Ingredient, Recipe, RecipeIngredients, ShoppingCart, Tag, Tokens
 from users.models import Follow
 
 
@@ -37,16 +37,6 @@ class Base64ImageField(serializers.ImageField):
             data = ContentFile(base64.b64decode(imgstr), name='image.' + ext)
 
         return super().to_internal_value(data)
-
-
-class FavoriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Favorites
-        fields = 'recipe',
-
-    def to_representation(self, instance):
-        recipe_data = super().to_representation(instance)
-        return recipe_data
 
 
 class UserCreateSerializer(DjoserUserCreateSerializer):
@@ -94,6 +84,15 @@ class ReadRecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         recipe_data = super().to_representation(instance)
         recipe_data.pop('favorites_count')
+        recipe_data['is_favorited'] = False
+        recipe_data['is_in_shopping_cart'] = False
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            me_user = self.context['request'].user
+            if Favorite.objects.filter(user=me_user, recipe=instance).exists():
+                recipe_data['is_favorited'] = True
+            if ShoppingCart.objects.filter(user=me_user, recipe=instance).exists():
+                recipe_data['is_in_shopping_cart'] = True
         return recipe_data
 
     def get_ingredients(self, recipe):
@@ -202,7 +201,7 @@ class SubscribeSerializer(serializers.Serializer):
         request = self.context.get('request')
         if request and request.query_params.get('recipes_limit'):
             recipes = recipes[:int(request.query_params.get('recipes_limit'))]
-        serialized_recipes = RecipeSerializer(recipes, many=True).data
+        serialized_recipes = ReadRecipeSerializer(recipes, many=True).data
         [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text']]
         return serialized_recipes
 
@@ -237,8 +236,8 @@ class CreateSubscribeSerializer(serializers.Serializer):
         request = self.context.get('request')
         if request and request.query_params.get('recipes_limit'):
             recipes = recipes[:int(request.query_params.get('recipes_limit'))]
-        serialized_recipes = RecipeSerializer(recipes, many=True, context=self.context).data
-        [recipe.pop(field)for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text']]
+        serialized_recipes = ReadRecipeSerializer(recipes, many=True, context=self.context).data
+        [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text']]
         return serialized_recipes
 
     def to_representation(self, instance):
@@ -257,10 +256,30 @@ class TokenSerializer(serializers.ModelSerializer):
         extra_kwargs = {'full_url': {'validators': []}}
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        return {'short-link': representation['short_link']}
+        return {'short-link': instance.short_link}
 
     def create(self, validated_data):
-        full_url = validated_data['full_url']
-        token, _ = Tokens.objects.get_or_create(full_url=full_url)
+        token, _ = Tokens.objects.get_or_create(full_url=validated_data['full_url'])
         return token
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Favorite
+        fields = 'recipe',
+
+    def to_representation(self, instance):
+        recipe_data = ReadRecipeSerializer(instance.recipe, context=self.context).data
+        [recipe_data.pop(field) for field in ['tags', 'author', 'ingredients', 'text', 'is_favorited', 'is_in_shopping_cart']]
+        return recipe_data
+
+
+class ShoppingCartSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShoppingCart
+        fields = 'recipe',
+
+    def to_representation(self, instance):
+        recipe_data = ReadRecipeSerializer(instance.recipe, context=self.context).data
+        [recipe_data.pop(field) for field in ['tags', 'author', 'ingredients', 'text', 'is_favorited', 'is_in_shopping_cart']]
+        return recipe_data

@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 
-from .models import (Favorites, Ingredient, Recipe,
+from .models import (Favorite, Ingredient, Recipe,
                      RecipeIngredients, ShoppingCart, Tag, Tokens)
 
 
@@ -38,4 +38,4 @@ class TokenAdmin(admin.ModelAdmin):
     search_fields = ('full_url', 'short_link')
 
 
-admin.site.register([Tag, Favorites, ShoppingCart])
+admin.site.register([Tag, Favorite, ShoppingCart])

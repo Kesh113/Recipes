@@ -19,11 +19,11 @@ from djoser.permissions import CurrentUserOrAdmin
 from .permissions import IsAuthorOrReadOnly
 from .filters import RecipeFilter
 from .serializers import (
-    FavoriteSerializer, SubscribeSerializer, IngredientSerializer,
+    FavoriteSerializer, ShoppingCartSerializer, SubscribeSerializer, IngredientSerializer,
     TagSerializer, ReadRecipeSerializer, UserAvatarSerializer, UserSerializer,
     CreateSubscribeSerializer, WriteRecipeSerializer, TokenSerializer
 )
-from foodgram.models import Ingredient, Tag, Recipe, Tokens
+from foodgram.models import Favorite, Ingredient, ShoppingCart, Tag, Recipe, Tokens
 from users.models import Follow
 
 
@@ -73,13 +73,6 @@ class RecipeViewSet(ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = False
         return self.update(request, *args, **kwargs)
-
-
-class FavoriteViewSet(ViewSetMixin, CreateAPIView, DestroyAPIView):
-    serializer_class = FavoriteSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
 
 
 class UserViewSet(UserViewSet):
@@ -149,13 +142,44 @@ class SubscribeViewSet(ViewSetMixin, CreateAPIView, DestroyAPIView):
 
 
 class GetLinkView(APIView):
-    http_method_names = ['get', 'head', 'options', 'trace']
-
     def get(self, request, recipe_id):
+        get_object_or_404(Recipe, pk=recipe_id)
         recipe_url = request.build_absolute_uri(reverse('recipes-detail', args=[recipe_id]))
         serializer = TokenSerializer(data={'full_url': recipe_url})
         serializer.is_valid(raise_exception=True)
-        token = serializer.create(
-            validated_data=serializer.validated_data
-        )
-        return Response(TokenSerializer(token).data, status=status.HTTP_200_OK)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FavoriteView(APIView):
+    def post(self, request, recipe_id):
+        recipe = get_object_or_404(Recipe, pk=recipe_id)
+        favorite_recipe, created = Favorite.objects.get_or_create(user=request.user, recipe=recipe)
+        if not created:
+            return Response({'favorite': 'Рецепт уже добавлен в избранное'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = FavoriteSerializer(favorite_recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, recipe_id):
+        recipe = get_object_or_404(Recipe, pk=recipe_id)
+        if not Favorite.objects.filter(user=request.user, recipe=recipe).exists():
+            return Response({'favorite': 'Рецепта нет в избранном'}, status=status.HTTP_400_BAD_REQUEST)
+        Favorite.objects.get(user=request.user, recipe=recipe).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ShoppingCartView(APIView):
+    def post(self, request, recipe_id):
+        recipe = get_object_or_404(Recipe, pk=recipe_id)
+        favorite_recipe, created = ShoppingCart.objects.get_or_create(user=request.user, recipe=recipe)
+        if not created:
+            return Response({'favorite': 'Рецепт уже добавлен в избранное'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ShoppingCartSerializer(favorite_recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, recipe_id):
+        recipe = get_object_or_404(Recipe, pk=recipe_id)
+        if not ShoppingCart.objects.filter(user=request.user, recipe=recipe).exists():
+            return Response({'favorite': 'Рецепта нет в избранном'}, status=status.HTTP_400_BAD_REQUEST)
+        ShoppingCart.objects.get(user=request.user, recipe=recipe).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
