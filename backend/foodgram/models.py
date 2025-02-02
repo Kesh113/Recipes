@@ -90,9 +90,9 @@ class RecipeIngredients(models.Model):
 
 
 class Favorite(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE,
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь',
                              related_name='favorite_recipes')
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
                                related_name='users_favorite')
 
     class Meta:
@@ -105,9 +105,9 @@ class Favorite(models.Model):
 
 
 class ShoppingCart(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE,
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь',
                              related_name='shopping_cart_recipes')
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
                                related_name='users_shopping_cart')
 
     class Meta:
@@ -120,17 +120,20 @@ class ShoppingCart(models.Model):
 
 
 class Tokens(models.Model):
-    full_url = models.URLField(unique=True)
+    full_url = models.URLField(unique=True, verbose_name='Ссылка')
     short_link = models.URLField(
         unique=True,
         db_index=True,
-        blank=True
+        blank=True,
+        verbose_name='Короткая ссылка'
     )
-    requests_count = models.IntegerField(default=0)
+    requests_count = models.IntegerField(default=0, verbose_name='Количество запросов')
     created_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
+        verbose_name = 'Короткая ссылка'
+        verbose_name_plural = 'Короткие ссылки'
         ordering = ('-created_date',)
 
     def save(self, *args, **kwargs):
@@ -150,3 +153,5 @@ class Tokens(models.Model):
 
     def __str__(self) -> str:
         return f'{self.short_link} -> {self.full_url}'
+    
+

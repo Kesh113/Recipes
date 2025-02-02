@@ -1,3 +1,6 @@
+from collections import defaultdict
+import io
+from django.http import FileResponse, StreamingHttpResponse
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
@@ -5,7 +8,7 @@ from django.contrib.auth import get_user_model
 from djoser.views import UserViewSet
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import CreateAPIView, DestroyAPIView
@@ -183,3 +186,32 @@ class ShoppingCartView(APIView):
             return Response({'favorite': 'Рецепта нет в избранном'}, status=status.HTTP_400_BAD_REQUEST)
         ShoppingCart.objects.get(user=request.user, recipe=recipe).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@permission_classes([IsAuthenticated])
+class DownloadShoppingCartView(APIView):
+    def get(self, request):
+        user = request.user
+        recipes = Recipe.objects.filter(users_shopping_cart__user=user)
+        serializer = ReadRecipeSerializer(recipes, many=True)
+        ingredients = defaultdict(lambda: {'amount': 0, 'unit': ''})
+        for recipe in serializer.data:
+            for ingredient in recipe['ingredients']:
+                name = ingredient['name']
+                amount = ingredient['amount']
+                unit = ingredient['measurement_unit']
+                if name in ingredients:
+                    ingredients[name]['amount'] += amount
+                else:
+                    ingredients[name]['amount'] = amount
+                    ingredients[name]['unit'] = unit
+
+        def generate_shopping_list():
+            output = io.StringIO()
+            for name, data in ingredients.items():
+                output.write(f'{name} - {data["amount"]} {data["unit"]}\n')
+            yield output.getvalue()
+
+        response = StreamingHttpResponse(generate_shopping_list(), content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        return response
