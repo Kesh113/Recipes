@@ -159,3 +159,6 @@ TOKEN_LENGTH = 6
 
 
 SITE_URL = os.getenv('SITE_URL')
+
+
+USERNAME_RESERVED = 'me'

@@ -1,12 +1,16 @@
 import django_filters
 
-from foodgram.models import Recipe
+from foodgram.models import Recipe, Tag
 
 
 class RecipeFilter(django_filters.FilterSet):
-    tags = django_filters.CharFilter(field_name='tags__slug')
-    is_favorited = django_filters.Filter(method='filter_is_favorited', label='is_favorited')
-    is_in_shopping_cart = django_filters.Filter(method='filter_is_in_shopping_cart', label='is_in_shopping_cart')
+    tags = django_filters.ModelMultipleChoiceFilter(
+        field_name='tags__slug',
+        to_field_name='slug',
+        queryset=Tag.objects.all(),
+    )
+    is_favorited = django_filters.Filter(method='filter_is_favorited')
+    is_in_shopping_cart = django_filters.Filter(method='filter_is_in_shopping_cart')
 
     class Meta:
         model = Recipe

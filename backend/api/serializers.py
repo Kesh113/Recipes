@@ -126,11 +126,18 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         recipe_data = super().to_representation(instance)
         recipe_data.pop('favorites_count')
+        recipe_data['is_favorited'] = False
+        recipe_data['is_in_shopping_cart'] = False
         ingredients = []
         for item in instance.recipe_ingredients.all():
             ingredient_data = IngredientSerializer(item.ingredient).data
             ingredient_data['amount'] = item.amount
             ingredients.append(ingredient_data)
+        me_user = self.context['request'].user
+        if Favorite.objects.filter(user=me_user, recipe=instance).exists():
+            recipe_data['is_favorited'] = True
+        if ShoppingCart.objects.filter(user=me_user, recipe=instance).exists():
+            recipe_data['is_in_shopping_cart'] = True
         recipe_data['ingredients'] = ingredients
         recipe_data['tags'] = TagSerializer(instance.tags.all(), many=True).data
         return recipe_data
@@ -202,7 +209,7 @@ class SubscribeSerializer(serializers.Serializer):
         if request and request.query_params.get('recipes_limit'):
             recipes = recipes[:int(request.query_params.get('recipes_limit'))]
         serialized_recipes = ReadRecipeSerializer(recipes, many=True).data
-        [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text']]
+        [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text', 'is_favorited', 'is_in_shopping_cart']]
         return serialized_recipes
 
     def to_representation(self, instance):
@@ -237,7 +244,7 @@ class CreateSubscribeSerializer(serializers.Serializer):
         if request and request.query_params.get('recipes_limit'):
             recipes = recipes[:int(request.query_params.get('recipes_limit'))]
         serialized_recipes = ReadRecipeSerializer(recipes, many=True, context=self.context).data
-        [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text']]
+        [recipe.pop(field) for recipe in serialized_recipes for field in ['tags', 'author', 'ingredients', 'text', 'is_favorited', 'is_in_shopping_cart']]
         return serialized_recipes
 
     def to_representation(self, instance):

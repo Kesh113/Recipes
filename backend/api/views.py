@@ -1,6 +1,6 @@
 from collections import defaultdict
 import io
-from django.http import FileResponse, StreamingHttpResponse
+from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from djoser.permissions import CurrentUserOrAdmin
 
+from .utils import generate_shopping_list, get_shopping_data
 from .permissions import IsAuthorOrReadOnly
 from .filters import RecipeFilter
 from .serializers import (
@@ -191,27 +192,11 @@ class ShoppingCartView(APIView):
 @permission_classes([IsAuthenticated])
 class DownloadShoppingCartView(APIView):
     def get(self, request):
-        user = request.user
-        recipes = Recipe.objects.filter(users_shopping_cart__user=user)
-        serializer = ReadRecipeSerializer(recipes, many=True)
-        ingredients = defaultdict(lambda: {'amount': 0, 'unit': ''})
-        for recipe in serializer.data:
-            for ingredient in recipe['ingredients']:
-                name = ingredient['name']
-                amount = ingredient['amount']
-                unit = ingredient['measurement_unit']
-                if name in ingredients:
-                    ingredients[name]['amount'] += amount
-                else:
-                    ingredients[name]['amount'] = amount
-                    ingredients[name]['unit'] = unit
-
-        def generate_shopping_list():
-            output = io.StringIO()
-            for name, data in ingredients.items():
-                output.write(f'{name} - {data["amount"]} {data["unit"]}\n')
-            yield output.getvalue()
-
-        response = StreamingHttpResponse(generate_shopping_list(), content_type='text/plain; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="shopping_list.txt"'
+        recipes = Recipe.objects.filter(users_shopping_cart__user=request.user)
+        response = HttpResponse(
+            generate_shopping_list(recipes), 
+            content_type='text/plain; charset=utf-8'
+        )
+        response['Content-Disposition'] = ('attachment; '
+                                           'filename="shopping_list.txt"')
         return response
