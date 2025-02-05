@@ -31,20 +31,26 @@ class FoodgramUser(AbstractUser):
         ordering = 'username',
 
 
-class Follow(models.Model):
-    user = models.ForeignKey(FoodgramUser, on_delete=models.CASCADE, verbose_name='Пользователь',
-                             related_name='followers')
-    following = models.ForeignKey(FoodgramUser, on_delete=models.CASCADE, verbose_name='Подписать на',
-                                  related_name='followings')
+class Subscribe(models.Model):
+    user = models.ForeignKey(
+        FoodgramUser, on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+        related_name='subscriptions'
+    )
+    subscribing = models.ForeignKey(
+        FoodgramUser, on_delete=models.CASCADE,
+        verbose_name='Подписать на',
+        related_name='subscribers'
+    )
 
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
-        unique_together = ('user', 'following')
+        unique_together = ('user', 'subscribing')
 
     def __str__(self):
-        return f'{self.user.username} подписан на {self.following.username}'
+        return f'{self.user.username} подписан на {self.subscribing.username}'
 
-    def clean(self):
-        if self.user == self.following:
+    def clean_subscribing(self):
+        if self.user == self.subscribing:
             raise ValidationError('Нельзя подписаться на самого себя.')

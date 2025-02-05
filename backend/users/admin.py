@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import Follow
+from .models import Subscribe
 
 
 User = get_user_model()
@@ -16,5 +16,4 @@ class FoodgramUserAdmin(UserAdmin):
     search_fields = ('email', 'username')
 
 
-admin.site.register([Follow])
-
+admin.site.register([Subscribe])

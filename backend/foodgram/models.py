@@ -152,5 +152,3 @@ class Tokens(models.Model):
 
     def __str__(self) -> str:
         return f'{self.short_link} -> {self.full_url}'
-    
-

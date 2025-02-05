@@ -1,6 +1,5 @@
 from django.http import HttpResponse
 from django.shortcuts import redirect
-from django.urls import reverse
 
 from foodgram.models import Tokens
 
@@ -24,7 +23,7 @@ def get_full_url(url: str) -> str:
     return token.full_url
 
 
-def redirection(request, short_link):
+def redirection(request):
     """Перенаправляем пользователя по ссылке"""
     try:
         return redirect(get_full_url(request.build_absolute_uri()[:-1]))

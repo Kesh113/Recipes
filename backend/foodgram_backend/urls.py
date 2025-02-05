@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 
 from .services import redirection
 
@@ -9,7 +9,11 @@ from .services import redirection
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-    path('<str:short_link>/', redirection, name='short-link')
+    re_path(
+        fr'^[{settings.CHARACTERS}]{{{settings.TOKEN_LENGTH}}}/$',
+        redirection,
+        name='short-link'
+    )
 ]
 
 if settings.DEBUG:
