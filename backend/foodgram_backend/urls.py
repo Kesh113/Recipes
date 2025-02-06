@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include, re_path
 
-from .services import redirection
+from .services import TokenRedirectView
 
 
 urlpatterns = [
@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/', include('api.urls')),
     re_path(
         fr'^[{settings.CHARACTERS}]{{{settings.TOKEN_LENGTH}}}/$',
-        redirection,
+        TokenRedirectView.as_view(),
         name='short-link'
     )
 ]

@@ -17,16 +17,17 @@ class Ingredient(models.Model):
     class Meta:
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
-        default_related_name = 'ingredients'
 
     def __str__(self):
-        return f'{self.name[:21]} в {self.measurement_unit}'
+        return f'{self.name[:21]} в {self.measurement_unit[:21]}'
 
 
 class Tag(models.Model):
     name = models.CharField(max_length=32, unique=True,
                             verbose_name='Название')
-    slug = models.SlugField(max_length=32, null=True, blank=True, unique=True)
+    slug = models.SlugField(
+        max_length=32, db_index=True, null=True, blank=True, unique=True
+    )
 
     class Meta:
         verbose_name = 'Тэг'
@@ -71,8 +72,14 @@ class Recipe(models.Model):
 
 
 class RecipeIngredients(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт', related_name='recipe_ingredients')
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент')
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+        related_name='recipe_ingredients'
+    )
+    ingredient = models.ForeignKey(
+        Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент'
+    )
     amount = models.DecimalField(
         max_digits=5, decimal_places=2,
         validators=[MinValueValidator(Decimal('1.00'))],
@@ -80,42 +87,47 @@ class RecipeIngredients(models.Model):
     )
 
     def __str__(self):
-        return (f'{self.ingredient.name} - {self.amount} '
-                f'{self.ingredient.measurement_unit}')
+        return (f'{self.ingredient.name[:21]} - {self.amount} '
+                f'{self.ingredient.measurement_unit[:21]}')
 
     class Meta:
         verbose_name = 'Количество ингредиента'
         verbose_name_plural = 'Количество ингредиентов'
 
 
-class Favorite(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь',
-                             related_name='favorite_recipes')
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
-                               related_name='users_favorite')
+class UserRecipeBaseModel(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+    )
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+    )
 
     class Meta:
+        unique_together = ('user', 'recipe')
+        abstract = True
+
+
+class Favorite(UserRecipeBaseModel):
+    class Meta(UserRecipeBaseModel.Meta):
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
-        unique_together = ('user', 'recipe')
+        default_related_name = 'favorites'
 
     def __str__(self):
-        return f'У {self.user.username} в избранном {self.recipe}'
+        return f'У {self.user.username[:21]} в избранном {self.recipe}'
 
 
-class ShoppingCart(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Пользователь',
-                             related_name='shopping_cart_recipes')
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name='Рецепт',
-                               related_name='users_shopping_cart')
-
-    class Meta:
+class ShoppingCart(UserRecipeBaseModel):
+    class Meta(UserRecipeBaseModel.Meta):
         verbose_name = 'Списки покупок'
         verbose_name_plural = 'Список покупок'
-        unique_together = ('user', 'recipe')
+        default_related_name = 'shopping_carts'
 
     def __str__(self):
-        return f'У {self.user.username} в списке покупок {self.recipe}'
+        return f'У {self.user.username[:21]} в списке покупок {self.recipe}'
 
 
 class Tokens(models.Model):
@@ -126,7 +138,9 @@ class Tokens(models.Model):
         blank=True,
         verbose_name='Короткая ссылка'
     )
-    requests_count = models.IntegerField(default=0, verbose_name='Количество запросов')
+    requests_count = models.IntegerField(
+        default=0, verbose_name='Количество запросов'
+    )
     created_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 

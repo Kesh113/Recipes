@@ -38,15 +38,6 @@ class TagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class Base64ImageField(serializers.ImageField):
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='image.' + ext)
-        return super().to_internal_value(data)
-
-
 class UserCreateSerializer(DjoserUserCreateSerializer):
     class Meta(DjoserUserCreateSerializer.Meta):
         fields = DjoserUserCreateSerializer.Meta.fields + (
@@ -69,6 +60,15 @@ class UserSerializer(DjoserUserSerializer):
             if Subscribe.objects.filter(user=me_user, subscribing=instance).exists():
                 data['is_subscribed'] = True
         return data
+
+
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(base64.b64decode(imgstr), name='image.' + ext)
+        return super().to_internal_value(data)
 
 
 class UserAvatarSerializer(serializers.ModelSerializer):
@@ -273,7 +273,6 @@ class FavoriteShoppingCartSerializer(serializers.ModelSerializer):
         fields = 'recipe',
 
     def to_representation(self, instance):
-        pprint.pprint(instance)
         recipe_data = ReadRecipeSerializer(
             instance.recipe, context=self.context
         ).data

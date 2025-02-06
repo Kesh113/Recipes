@@ -14,7 +14,9 @@ class RecipeFilter(django_filters.FilterSet):
         queryset=Tag.objects.all(),
     )
     is_favorited = django_filters.Filter(method='filter_is_favorited')
-    is_in_shopping_cart = django_filters.Filter(method='filter_is_in_shopping_cart')
+    is_in_shopping_cart = django_filters.Filter(
+        method='filter_is_in_shopping_cart'
+    )
     limit = django_filters.NumberFilter(method='filter_limit')
 
     class Meta:
