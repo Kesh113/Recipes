@@ -53,7 +53,7 @@ class Recipe(models.Model):
     ingredients = models.ManyToManyField(
         Ingredient,
         verbose_name='Список ингредиентов',
-        through='RecipeIngredients'
+        through='RecipeIngredients',
     )
     tags = models.ManyToManyField(Tag, verbose_name='Список тэгов')
     favorites_count = models.PositiveIntegerField(
@@ -74,8 +74,8 @@ class Recipe(models.Model):
 class RecipeIngredients(models.Model):
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE,
+        related_name='recipe_ingredients',
         verbose_name='Рецепт',
-        related_name='recipe_ingredients'
     )
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент'

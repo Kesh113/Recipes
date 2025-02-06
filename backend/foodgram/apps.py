@@ -7,3 +7,4 @@ class FoodgramConfig(AppConfig):
 
     def ready(self):
         import foodgram.signals
+        foodgram.signals

@@ -21,7 +21,9 @@ def generate_shopping_list(recipes):
     output = io.BytesIO()
     output.write(b'Shopping list\n\n')
     for name, data in get_shopping_data(recipes).items():
-        output.write(f'{name} - {data["amount"]} {data["unit"]}\n'.encode('utf-8'))
+        output.write(
+            f'{name} - {data["amount"]} {data["unit"]}\n'.encode('utf-8')
+        )
     output.seek(0)
     return output
 
