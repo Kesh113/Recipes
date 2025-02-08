@@ -12,7 +12,9 @@ from djoser.serializers import (
 from rest_framework import serializers
 
 from .utils import pop_fields
-from foodgram.models import Ingredient, Recipe, RecipeIngredients, Tag, Tokens
+from foodgram.models import (
+    Favorite, Ingredient, Recipe, RecipeIngredients, Tag, Tokens
+)
 from users.models import Subscribe
 
 
@@ -34,6 +36,12 @@ EXCLUDE_RECIPE_FIELDS = [
 SELF_SUBSCRIBE_ERROR = {'subscribe': 'Нельзя подписаться на самого себя.'}
 
 ALREADY_SUBSCRIBED_ERROR = {'subscribe': 'Вы уже подписаны'}
+
+ALREADY_IN_FAVORITE = {'favorite': 'Рецепт уже добавлен в избранное'}
+
+ALREADY_IN_SHOPPING_CART = {
+    'shopping_cart': 'Рецепт уже добавлен в список покупок'
+}
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -78,9 +86,12 @@ class Base64ImageField(serializers.ImageField):
     def to_internal_value(self, data):
         if isinstance(data, str) and data.startswith('data:image'):
             format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='image.' + ext)
-        return super().to_internal_value(data)
+        return super().to_internal_value(
+            ContentFile(
+                base64.b64decode(imgstr),
+                name='image.' + format.split('/')[-1]
+            )
+        )
 
 
 class UserAvatarSerializer(serializers.ModelSerializer):
@@ -197,11 +208,16 @@ class WriteRecipeSerializer(RecipeSerializer):
             instance.tags.set(tags_data)
         return instance
 
+    def to_representation(self, instance):
+        return ReadRecipeSerializer(
+            instance, context=self.context
+        ).data
+
 
 class SubscribeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscribe
-        fields = ['subscribing',]
+        fields = 'subscribing',
 
     def validate(self, data):
         request = self.context.get('request')
@@ -222,7 +238,7 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
     def _get_serialized_recipes(self, subscribing):
         subscribing_recipes = subscribing.recipes.all()
-        request = self.context.get('request')
+        request = self.context['request']
         recipes_limit = request.query_params.get('recipes_limit')
         if request and recipes_limit:
             subscribing_recipes = subscribing_recipes[:int(recipes_limit)]
@@ -233,7 +249,9 @@ class SubscribeSerializer(serializers.ModelSerializer):
         return serialized_recipes
 
     def to_representation(self, subscribing):
-        data = UserSerializer(subscribing).data
+        data = UserSerializer(
+            subscribing, context={'request': self.context['request']}
+        ).data
         serialized_recipes = self._get_serialized_recipes(subscribing)
         data.update({
             'recipes': serialized_recipes,
@@ -258,13 +276,26 @@ class TokenSerializer(serializers.ModelSerializer):
         return token
 
 
-class FavoriteShoppingCartSerializer(serializers.ModelSerializer):
-    class Meta:
-        fields = 'recipe',
+class UserRecipeListsSerializer(serializers.Serializer):
+    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+
+    def save(self, user, model):
+        favorite_recipe, created = model.objects.get_or_create(
+            user=user, recipe=self.validated_data['recipe']
+        )
+        if not created:
+            if model == Favorite:
+                raise serializers.ValidationError(
+                    ALREADY_IN_FAVORITE,
+                )
+            raise serializers.ValidationError(
+                ALREADY_IN_SHOPPING_CART,
+            )
+        return favorite_recipe
 
     def to_representation(self, instance):
         recipe_data = ReadRecipeSerializer(
-            instance.recipe, context=self.context
+            instance['recipe'], context=self.context
         ).data
         pop_fields([recipe_data], EXCLUDE_RECIPE_FIELDS)
         return recipe_data
