@@ -16,11 +16,6 @@ class Migration(migrations.Migration):
             name='recipeingredients',
             options={'verbose_name': 'Количество ингредиента', 'verbose_name_plural': 'Количество ингредиентов'},
         ),
-        migrations.AlterField(
-            model_name='recipe',
-            name='cooking_time',
-            field=models.PositiveIntegerField(verbose_name='Время приготовления'),
-        ),
         migrations.CreateModel(
             name='ShoppingCart',
             fields=[

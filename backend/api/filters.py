@@ -1,24 +1,23 @@
 import django_filters
 from django.contrib.auth import get_user_model
 
-from foodgram.models import Recipe, Tag
+from foodgram.models import Ingredient, Recipe, Tag
 
 
 User = get_user_model()
 
 
-class LimitFilter(django_filters.FilterSet):
-    limit = django_filters.NumberFilter(method='filter_limit')
+class NameFilter(django_filters.FilterSet):
+    name = django_filters.CharFilter(
+        field_name='name', lookup_expr='startswith'
+    )
 
     class Meta:
-        model = User
-        fields = ()
-
-    def filter_limit(self, queryset, name, value):
-        return queryset[:value] if value else queryset
+        model = Ingredient
+        fields = 'name',
 
 
-class RecipeFilter(LimitFilter):
+class RecipeFilter(django_filters.FilterSet):
     tags = django_filters.ModelMultipleChoiceFilter(
         field_name='tags__slug',
         to_field_name='slug',

@@ -2,10 +2,10 @@ from string import ascii_letters, digits
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,9 +24,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'api',
     'users',
     'foodgram',
-    'api',
     'rest_framework.authtoken',
     'rest_framework',
     'djoser',
@@ -76,7 +76,7 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('POSTGRES_DB', 'django'),
-            'USER': os.getenv('POSTGRES_USER', 'django'),
+            'USER': os.getenv('POSTGRES_USER', 'django_user'),
             'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
             'HOST': os.getenv('DB_HOST', ''),
             'PORT': os.getenv('DB_PORT', '5432'),
@@ -132,7 +132,7 @@ REST_FRAMEWORK = {
     ],
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 4,
+    'PAGE_SIZE': 6,
 
 }
 
@@ -141,7 +141,6 @@ DJOSER = {
     'SERIALIZERS': {
         'user_create': 'api.serializers.UserCreateSerializer',
         'user': 'api.serializers.UserSerializer',
-        'current_user': 'api.serializers.UserSerializer'
     },
     'HIDE_USERS': False,
     'PERMISSIONS': {

@@ -1,5 +1,6 @@
 from functools import wraps
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from django.urls import reverse
@@ -8,19 +9,17 @@ from djoser.permissions import CurrentUserOrAdmin
 from djoser.views import UserViewSet
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly, IsAuthenticated
 )
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 
-from .filters import LimitFilter, RecipeFilter
+from .filters import NameFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     SubscribeSerializer, IngredientSerializer, TagSerializer, TokenSerializer,
-    ReadRecipeSerializer, UserAvatarSerializer, WriteRecipeSerializer,
+    ReadRecipeSerializer, UserAvatarSerializer, UserSerializer, WriteRecipeSerializer,
     UserRecipeListsSerializer
 )
 from .utils import generate_shopping_list
@@ -39,10 +38,10 @@ FILENAME = 'shopping_list.txt'
 NOT_SUBSCRIBED = {'subscribed': 'Вы не подписаны на этого пользователя'}
 
 
-def recipe_list_action(model, not_found_message):
+def recipe_list_action(model, not_found_message, url_path):
     def decorator(func):
         @action(
-            ['post', 'delete'], detail=True, url_path=func.__name__,
+            ['post', 'delete'], detail=True, url_path=url_path,
             permission_classes=[IsAuthenticated]
         )
         @wraps(func)
@@ -60,7 +59,7 @@ def recipe_list_action(model, not_found_message):
             try:
                 instance = model.objects.get(user=request.user, recipe=recipe)
                 instance.delete()
-                Response(status=status.HTTP_204_NO_CONTENT)
+                return Response(status=status.HTTP_204_NO_CONTENT)
             except model.DoesNotExist:
                 return Response(
                     not_found_message, status=status.HTTP_400_BAD_REQUEST
@@ -72,8 +71,8 @@ def recipe_list_action(model, not_found_message):
 class IngredientViewSet(ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    filter_backends = SearchFilter,
-    search_fields = '^name',
+    filter_backends = DjangoFilterBackend,
+    filterset_class = NameFilter
     pagination_class = None
 
 
@@ -104,11 +103,13 @@ class RecipeViewSet(ModelViewSet):
         kwargs['partial'] = False
         return self.update(request, *args, **kwargs)
 
-    @recipe_list_action(Favorite, NOT_RECIPE_IN_FAVORITE)
+    @recipe_list_action(Favorite, NOT_RECIPE_IN_FAVORITE, 'favorite')
     def favorite(self, request, pk):
         pass
 
-    @recipe_list_action(ShoppingCart, NOT_RECIPE_IN_SHOPPING_CART)
+    @recipe_list_action(
+        ShoppingCart, NOT_RECIPE_IN_SHOPPING_CART, 'shopping_cart'
+    )
     def shopping_cart(self, request, pk):
         pass
 
@@ -142,8 +143,6 @@ class FoodgramUserViewSet(UserViewSet):
     http_method_names = (
         'get', 'post', 'put', 'delete', 'head', 'options', 'trace'
     )
-    filter_backends = DjangoFilterBackend,
-    filterset_class = LimitFilter
     for attr in [
         'activation', 'resend_activation', 'reset_password',
         'reset_password_confirm', 'set_username', 'reset_username',
@@ -151,10 +150,12 @@ class FoodgramUserViewSet(UserViewSet):
     ]:
         locals()[attr] = None
 
-    @action(['get'], detail=False, permission_classes=[CurrentUserOrAdmin])
-    def me(self, request, *args, **kwargs):
-        self.get_object = self.get_instance
-        return self.retrieve(request, *args, **kwargs)
+    @action(
+        ['get'], detail=False, url_path=settings.USERNAME_RESERVED,
+        permission_classes=[IsAuthenticated]
+    )
+    def me(self, request):
+        return Response(UserSerializer(request.user).data)
 
     @action(
         ['put', 'delete'], detail=False, url_path='me/avatar',
@@ -175,15 +176,12 @@ class FoodgramUserViewSet(UserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def subscriptions(self, request):
-        subscribing = self.filter_queryset(
-            User.objects.filter(subscribers__user=request.user)
-        )
-        paginator = PageNumberPagination()
+        subscribing = User.objects.filter(subscribers__user=request.user)
+        page = self.paginate_queryset(subscribing)
         serializer = SubscribeSerializer(
-            paginator.paginate_queryset(subscribing, request),
-            many=True, context={'request': request}
+            page, many=True, context={'request': request}
         )
-        return paginator.get_paginated_response(serializer.data)
+        return self.get_paginated_response(serializer.data)
 
     @action(
         ['post', 'delete'], detail=True, url_path='subscribe',

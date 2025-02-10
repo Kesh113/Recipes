@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                 ('title', models.CharField(max_length=100, verbose_name='Название')),
                 ('image', models.ImageField(upload_to='foodgram/', verbose_name='Фото')),
                 ('description', models.TextField(verbose_name='Описание')),
-                ('cooking_time', models.TimeField(verbose_name='Время приготовления')),
+                ('cooking_time', models.PositiveIntegerField(verbose_name='Время приготовления')),
                 ('pub_date', models.DateTimeField(auto_now_add=True, verbose_name='Дата публикации')),
                 ('author', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recipes', to=settings.AUTH_USER_MODEL, verbose_name='Автор')),
             ],

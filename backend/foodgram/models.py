@@ -1,4 +1,3 @@
-from decimal import Decimal
 import random
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -80,9 +79,8 @@ class RecipeIngredients(models.Model):
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE, verbose_name='Ингредиент'
     )
-    amount = models.DecimalField(
-        max_digits=5, decimal_places=2,
-        validators=[MinValueValidator(Decimal('1.00'))],
+    amount = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
         verbose_name='Количество'
     )
 
