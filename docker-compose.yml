@@ -2,7 +2,8 @@ version: '3'
 
 volumes:
   pg_data_production:
-  static_volume:
+  backend_static_volume:
+  frontend_static_volume:
   media_volume:
 
 services:
@@ -17,14 +18,14 @@ services:
       - db
     env_file: .env
     volumes:
-      - static_volume:/backend_static
+      - backend_static_volume:/app/collected_static
       - media_volume:/app/media
   frontend:
     image: kesh193/foodgram_frontend
     env_file: .env
     command: cp -r /app/build/. /static/
     volumes:
-      - static_volume:/static
+      - frontend_static_volume:/static
   gateway:
     image: kesh193/foodgram_gateway
     depends_on:
@@ -32,7 +33,8 @@ services:
       - frontend
     env_file: .env
     volumes:
-      - static_volume:/static
+      - backend_static_volume:/backend_static
+      - frontend_static_volume:/frontend_static
       - media_volume:/media
     ports:
       - 8000:80

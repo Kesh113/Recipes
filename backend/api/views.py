@@ -19,8 +19,8 @@ from .filters import NameFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     SubscribeSerializer, IngredientSerializer, TagSerializer, TokenSerializer,
-    ReadRecipeSerializer, UserAvatarSerializer, UserSerializer, WriteRecipeSerializer,
-    UserRecipeListsSerializer
+    ReadRecipeSerializer, UserAvatarSerializer, UserSerializer,
+    WriteRecipeSerializer, UserRecipeListsSerializer
 )
 from .utils import generate_shopping_list
 from foodgram.models import Favorite, Ingredient, ShoppingCart, Tag, Recipe
