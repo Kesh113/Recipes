@@ -1,5 +1,6 @@
 import base64
 from decimal import Decimal
+import pprint
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -21,6 +22,8 @@ from users.models import Subscribe
 User = get_user_model()
 
 REQUIRED_FIELD = 'Обязательное поле.'
+
+IMAGE_REQUIRED_FIELD = {'image': 'Обязательное поле'}
 
 INGREDIENTS_NOT_REPEAT = 'Ингредиенты не должны повторяться.'
 
@@ -103,11 +106,10 @@ class UserAvatarSerializer(serializers.ModelSerializer):
 
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    image = Base64ImageField(required=True)
 
     class Meta:
         model = Recipe
-        fields = 'image', 'name', 'text', 'cooking_time', 'author', 'tags'
+        fields = 'name', 'text', 'cooking_time', 'author', 'tags'
 
 
 class ReadRecipeSerializer(RecipeSerializer):
@@ -115,11 +117,12 @@ class ReadRecipeSerializer(RecipeSerializer):
     ingredients = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
+    image = Base64ImageField()
 
     class Meta(RecipeSerializer.Meta):
         fields = RecipeSerializer.Meta.fields + (
             'id', 'tags', 'ingredients',
-            'is_favorited', 'is_in_shopping_cart'
+            'is_favorited', 'is_in_shopping_cart', 'image'
         )
 
     def get_ingredients(self, recipe):
@@ -155,9 +158,15 @@ class RecipeIngredientsSerializer(serializers.Serializer):
 
 class WriteRecipeSerializer(RecipeSerializer):
     ingredients = RecipeIngredientsSerializer(many=True, required=True)
+    image = Base64ImageField(required=False, allow_null=True)
 
     class Meta(RecipeSerializer.Meta):
-        fields = RecipeSerializer.Meta.fields + ('ingredients',)
+        fields = RecipeSerializer.Meta.fields + ('ingredients', 'image')
+
+    def validate(self, data):
+        if self.instance is None and not data.get('image'):
+            raise serializers.ValidationError(IMAGE_REQUIRED_FIELD)
+        return data
 
     def validate_ingredients(self, value):
         if not value:
@@ -193,17 +202,17 @@ class WriteRecipeSerializer(RecipeSerializer):
 
     @transaction.atomic
     def update(self, old_recipe, new_recipe_data):
-        ingredients = new_recipe_data.pop('ingredients', None)
-        tags_data = new_recipe_data.pop('tags', None)
-        old_recipe.recipe_ingredients.all().delete()
+        old_recipe.ingredients.clear()
         RecipeIngredients.objects.bulk_create([
             RecipeIngredients(
                 recipe=old_recipe,
                 ingredient_id=ingredient_data['id'],
                 amount=ingredient_data['amount']
-            ) for ingredient_data in ingredients])
-        old_recipe.tags.set(tags_data)
-        Recipe.objects.filter(id=old_recipe.id).update(**new_recipe_data)
+            ) for ingredient_data in new_recipe_data.pop('ingredients')])
+        old_recipe.tags.set(new_recipe_data.pop('tags'))
+        for key, value in new_recipe_data.items():
+            setattr(old_recipe, key, value)
+        old_recipe.save()
         return old_recipe
 
     def to_representation(self, recipe):
