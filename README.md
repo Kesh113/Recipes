@@ -1,9 +1,5 @@
-Находясь в папке infra, выполните команду docker-compose up. При выполнении этой команды контейнер frontend, описанный в docker-compose.yml, подготовит файлы, необходимые для работы фронтенд-приложения, а затем прекратит свою работу.
-
-По адресу http://localhost изучите фронтенд веб-приложения, а по адресу http://localhost/api/docs/ — спецификацию API.
-
 ![badge_foodgram](https://github.com/kesh113/foodgram/actions/workflows/main.yml/badge.svg)
-[![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-3.2+-green.svg)](https://www.djangoproject.com/)
 
 # Foodgram
@@ -60,7 +56,6 @@ echo 'SECRET_KEY=secret_key' >> .env
 echo 'DEBUG=False' >> .env
 echo 'ALLOWED_HOSTS=127.0.0.1,localhost' >> .env
 echo 'SQLITE=False' >> .env
-echo 'SITE_URL=http://127.0.0.1:8000/' >> .env
 ```
 
 3. **Установите Docker**

@@ -3,7 +3,6 @@ from functools import wraps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import FileResponse
-from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.permissions import CurrentUserOrAdmin
 from djoser.views import UserViewSet
@@ -117,10 +116,9 @@ class RecipeViewSet(ModelViewSet):
         ['get'], detail=True, url_path='get-link',
     )
     def get_link(self, request, pk):
-        recipe_url = request.build_absolute_uri(
-            reverse('recipes-detail', args=[pk])
+        serializer = TokenSerializer(
+            data={'recipe': self.get_object().id}, context={'request': request}
         )
-        serializer = TokenSerializer(data={'full_url': recipe_url})
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -131,12 +129,13 @@ class RecipeViewSet(ModelViewSet):
     )
     def download_shopping_cart(self, request):
         recipes = Recipe.objects.filter(shopping_carts__user=request.user)
-        return FileResponse(
+        response = FileResponse(
             generate_shopping_list(recipes),
             content_type='text/plain; charset=utf-8',
             as_attachment=True,
-            filename=FILENAME
         )
+        response['Content-Disposition'] = f'attachment; filename="{FILENAME}"'
+        return response
 
 
 class FoodgramUserViewSet(UserViewSet):

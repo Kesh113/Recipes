@@ -129,8 +129,12 @@ class ShoppingCart(UserRecipeBaseModel):
 
 
 class Tokens(models.Model):
-    full_url = models.URLField(unique=True, verbose_name='Ссылка')
-    short_link = models.URLField(
+    recipe = models.OneToOneField(
+        Recipe, on_delete=models.CASCADE,
+        verbose_name='рецепт', related_name='tokens'
+    )
+    short_link = models.CharField(
+        max_length=settings.TOKEN_LENGTH,
         unique=True,
         db_index=True,
         blank=True,
@@ -150,7 +154,7 @@ class Tokens(models.Model):
     def save(self, *args, **kwargs):
         if not self.short_link:
             while True:
-                self.short_link = settings.SITE_URL + ''.join(
+                self.short_link = ''.join(
                     random.choices(
                         settings.CHARACTERS,
                         k=settings.TOKEN_LENGTH
@@ -163,4 +167,4 @@ class Tokens(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f'{self.short_link} -> {self.full_url}'
+        return f'{self.recipe} - {self.short_link}'

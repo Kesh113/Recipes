@@ -29,13 +29,13 @@ class IngredientAdmin(admin.ModelAdmin):
 @admin.register(Tokens)
 class TokenAdmin(admin.ModelAdmin):
     list_display = (
-        'full_url',
+        'recipe',
         'short_link',
         'requests_count',
         'created_date',
         'is_active'
     )
-    search_fields = ('full_url', 'short_link')
+    search_fields = ('recipe', 'short_link')
 
 
 admin.site.register([Tag, Favorite, ShoppingCart])

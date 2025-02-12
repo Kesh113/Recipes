@@ -1,6 +1,5 @@
 import base64
 from decimal import Decimal
-import pprint
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -16,6 +15,7 @@ from .utils import pop_fields
 from foodgram.models import (
     Favorite, Ingredient, Recipe, RecipeIngredients, Tag, Tokens
 )
+from foodgram_backend.utils import generate_url
 from users.models import Subscribe
 
 
@@ -269,14 +269,19 @@ class TokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tokens
         fields = '__all__'
-        extra_kwargs = {'full_url': {'validators': []}}
+        extra_kwargs = {'recipe': {'validators': []}}
 
     def to_representation(self, instance):
-        return {'short-link': instance.short_link}
+        return {
+            'short-link':
+            generate_url(
+                self.context['request'], url_path=f'{instance.short_link}'
+            )
+        }
 
     def create(self, validated_data):
         token, _ = Tokens.objects.get_or_create(
-            full_url=validated_data['full_url']
+            recipe=validated_data['recipe']
         )
         return token
 
