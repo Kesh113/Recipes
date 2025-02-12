@@ -15,7 +15,7 @@ class TokenRedirectView(RedirectView):
     def get_redirect_url(self, *args, **kwargs):
         try:
             token = Tokens.objects.get(
-                short_link=self.request.path.strip('/')
+                short_link=self.request.path[2:].strip('/')
             )
             if not token.is_active:
                 raise ValueError(TOKEN_NOT_AVAILABLE)

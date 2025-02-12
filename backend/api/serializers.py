@@ -275,7 +275,7 @@ class TokenSerializer(serializers.ModelSerializer):
         return {
             'short-link':
             generate_url(
-                self.context['request'], url_path=f'{instance.short_link}'
+                self.context['request'], url_path=f's/{instance.short_link}'
             )
         }
 

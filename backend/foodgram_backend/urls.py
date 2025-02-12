@@ -10,7 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     re_path(
-        fr'^[{settings.CHARACTERS}]{{{settings.TOKEN_LENGTH}}}/$',
+        fr's/[{settings.CHARACTERS}]{{{settings.TOKEN_LENGTH}}}/$',
         TokenRedirectView.as_view(),
         name='short-link'
     )
