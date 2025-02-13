@@ -1,4 +1,3 @@
-from string import ascii_letters, digits
 import os
 from pathlib import Path
 
@@ -24,11 +23,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'api',
-    'users',
     'foodgram',
-    'rest_framework.authtoken',
+    'recipes',
+    'users',
+    'api',
     'rest_framework',
+    'rest_framework.authtoken',
     'djoser',
     'django_filters',
 ]
@@ -130,7 +130,6 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],
-
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 6,
 
@@ -139,7 +138,6 @@ REST_FRAMEWORK = {
 
 DJOSER = {
     'SERIALIZERS': {
-        'user_create': 'api.serializers.UserCreateSerializer',
         'user': 'api.serializers.UserSerializer',
     },
     'HIDE_USERS': False,
@@ -152,10 +150,3 @@ DJOSER = {
 
 
 AUTH_USER_MODEL = 'users.FoodgramUser'
-
-
-CHARACTERS = ascii_letters + digits
-TOKEN_LENGTH = 6
-
-
-USERNAME_RESERVED = 'me'

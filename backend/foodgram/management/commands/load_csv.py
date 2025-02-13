@@ -1,14 +1,18 @@
 import csv
 import os
+
 from django.core.management.base import BaseCommand
-from foodgram.models import Ingredient
+from django.db import IntegrityError
+
+from foodgram.models import Ingredient, Tag
 
 
 MODELS = {
     'ingredients.csv': Ingredient,
+    'tags.csv': Tag
 }
 
-DATA_DIR = 'data/'
+DATA_DIR = 'foodgram/fixtures/'
 
 
 class Command(BaseCommand):
@@ -16,42 +20,61 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--all',
-            action='store_true',
-            help='Загружает все CSV-файлы из папки data/'
+            'file_name',
+            help='Укажите название CSV файла без расширения'
         )
 
     def handle(self, *args, **options):
-        if options['all']:
-            for file_name, model in MODELS.items():
-                try:
-                    with open(
-                        os.path.join(DATA_DIR, file_name),
-                        encoding='utf-8'
-                    ) as file:
-                        reader = csv.reader(file)
-                        for row in reader:
-                            name, measurement_unit = row
-                            instance, created = (
-                                model.objects.update_or_create(
-                                    name=name,
-                                    defaults={
-                                        'measurement_unit': measurement_unit
-                                    }
+        file_name = options['file_name']
+        if file_name:
+            file_name = f'{file_name}.csv'
+            Model = MODELS[file_name]
+            try:
+                with open(
+                    os.path.join(DATA_DIR, file_name),
+                    encoding='utf-8'
+                ) as file:
+                    reader = csv.DictReader(file)
+                    objects = []
+                    for row in reader:
+                        if Model.__name__ == 'Ingredient':
+                            name, measurement_unit = (
+                                row['name'], row['measurement_unit']
+                            )
+                            objects.append(Model(
+                                name=name, measurement_unit=measurement_unit
+                            ))
+                        elif Model.__name__ == 'Tag':
+                            name, slug = row['name'], row['slug']
+                            objects.append(Model(name=name, slug=slug))
+                        else:
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    'Используйте "ingredients" или "tags" '
+                                    'для загрузки CSV-файлов из папки '
+                                    'foodgram/fixtures'
                                 )
                             )
-                            if created:
-                                self.stdout.write(self.style.SUCCESS(
-                                    f"Создан объект {instance}"))
-                            else:
-                                self.stdout.write(self.style.SUCCESS(
-                                    f"Обновлен объект {instance}"))
-                except FileNotFoundError:
-                    self.stderr.write(self.style.ERROR(
-                        f"Файл {file_name} не найден"
-                    ))
-        else:
-            print(
-                'Используйте "--all" для загрузки всех '
-                'CSV-файлов из папки data/'
-            )
+                    try:
+                        Model.objects.bulk_create(objects)
+                        self.stdout.write(self.style.SUCCESS(
+                            'Данные успешно импортированы в модель '
+                            f'{Model.__name__} из {file_name}'
+                        ))
+                    except IntegrityError as e:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                'Ошибка целостности при добавлении данных '
+                                f'{file_name}: {e}'
+                            )
+                        )
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.ERROR(
+                                f'Ошибка при импорте данных из {file_name}: {e}'
+                            )
+                        )
+            except FileNotFoundError:
+                self.stderr.write(self.style.ERROR(
+                    f'Файл {file_name} не найден'
+                ))

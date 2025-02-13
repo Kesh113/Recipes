@@ -17,7 +17,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from .filters import NameFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
-    SubscribeSerializer, IngredientSerializer, TagSerializer, TokenSerializer,
+    SubscribeSerializer, IngredientSerializer, TagSerializer,
     ReadRecipeSerializer, UserAvatarSerializer, UserSerializer,
     WriteRecipeSerializer, UserRecipeListsSerializer
 )
@@ -116,12 +116,9 @@ class RecipeViewSet(ModelViewSet):
         ['get'], detail=True, url_path='get-link',
     )
     def get_link(self, request, pk):
-        serializer = TokenSerializer(
-            data={'recipe': self.get_object().id}, context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({
+            'short-link': f'{request.scheme}://{request.get_host()}/s/{pk}'
+        })
 
     @action(
         ['get'], detail=False, url_path='download_shopping_cart',
@@ -150,7 +147,7 @@ class FoodgramUserViewSet(UserViewSet):
         locals()[attr] = None
 
     @action(
-        ['get'], detail=False, url_path=settings.USERNAME_RESERVED,
+        ['get'], detail=False, url_path='me',
         permission_classes=[IsAuthenticated]
     )
     def me(self, request):

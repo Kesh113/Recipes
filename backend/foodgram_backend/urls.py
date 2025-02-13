@@ -1,19 +1,13 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include, re_path
-
-from .services import TokenRedirectView
+from django.urls import path, include
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-    re_path(
-        fr's/[{settings.CHARACTERS}]{{{settings.TOKEN_LENGTH}}}/$',
-        TokenRedirectView.as_view(),
-        name='short-link'
-    )
+    path('', include('recipes.urls')),
 ]
 
 if settings.DEBUG:

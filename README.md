@@ -58,6 +58,8 @@ echo 'ALLOWED_HOSTS=127.0.0.1,localhost' >> .env
 echo 'SQLITE=False' >> .env
 ```
 
+### В контейнерах Docker
+
 3. **Установите Docker**
 
 ```bash
@@ -80,21 +82,99 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py collectstatic
 ```
 
-6. **Загрузите фикстуры и создайте root пользователя**
+6. **Загрузите фикстуры**
+
+CSV:
+```bash
+docker compose exec backend python manage.py load_csv ingredients
+docker compose exec backend python manage.py load_csv tags
+```
+
+**ЛИБО**
+
+JSON:
+```bash
+docker compose exec backend python manage.py load_json foodgram/fixtures/ingredients.json foodgram.Ingredient
+docker compose exec backend python manage.py load_json foodgram/fixtures/tags.json foodgram.Tag
+```
+
+7. **Cоздайте root пользователя**
 
 ```bash
-docker compose exec backend python manage.py load_csv --all
 docker compose exec backend python manage.py createsuperuser
 ```
 
-7. **Пользуйтесь сервисом**
+8 **Пользуйтесь сервисом** 
 
-```url
-http://localhost:8000
+[тык](http://localhost:8000)
+
+### Локально
+
+3. **Создайте и активируйте виртуальное окружение**
+
+```bash
+cd backend/
+py -3.9 -m venv venv
+source venv/Scripts/activate
 ```
+
+4. **Установите зависимости**
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+5. **Выполните миграции и импортируйте фикстуры**
+
+```bash
+python manage.py migrate
+```
+
+JSON:
+```bash
+python manage.py load_json foodgram/fixtures/ingredients.json foodgram.Ingredient
+python manage.py load_json foodgram/fixtures/tags.json foodgram.Tag
+```
+
+**ЛИБО**
+
+CSV:
+```bash
+python manage.py load_csv ingredients
+python manage.py load_csv tags
+```
+
+6. **Создайте root пользователя и запустите бэкэнд сервер**
+
+```bash
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+7. **Изменить настройки в frontend/package.json**
+
+"proxy": "http://web:8000/" -> "proxy": "http://localhost:8000/"
+
+**Не забудьте поменять настройки обратно при передаче на продакшн**
+
+8. **Запустите фронтэнд сервер**
+
+```bash
+cd ../frontend
+npm run start
+```
+
+9 **Пользуйтесь сервисом** 
+
+[Бэкэнд](http://localhost:8000)
+[Фронтэнд](http://localhost:3000)
 
 
 ## Автор
 
 Широкожухов Артем Андреевич
+
+[Мой Foodgram](https://www.ya-kesh.ru/)
+
 [GitHub](https://github.com/Kesh113)

@@ -1,32 +1,33 @@
-from collections import defaultdict
-import io
+from datetime import date
+
+from django.db.models import Sum
+
+from foodgram.models import RecipeIngredients
 
 
-def get_shopping_data(recipes):
-    ingredients = defaultdict(lambda: {'amount': 0, 'unit': ''})
-    for recipe in recipes:
-        for item in recipe.recipe_ingredients.all():
-            name = item.ingredient.name
-            amount = item.amount
-            unit = item.ingredient.measurement_unit
-            if name in ingredients:
-                ingredients[name]['amount'] += amount
-            else:
-                ingredients[name]['amount'] = amount
-                ingredients[name]['unit'] = unit
-    return ingredients
+def get_ingredients(recipes):
+    ingredients_data = (
+        RecipeIngredients.objects
+        .filter(recipe__in=recipes)
+        .values('ingredient__name', 'ingredient__measurement_unit')
+        .annotate(total_amount=Sum('amount'))
+        .values(
+            'ingredient__name', 'ingredient__measurement_unit', 'total_amount'
+        )
+    )
+    return [
+        f'{i}. {data["ingredient__name"].capitalize()} - '
+        f'{data["total_amount"]} {data["ingredient__measurement_unit"][:4]}'
+        for i, data in enumerate(ingredients_data, 1)
+    ]
 
 
 def generate_shopping_list(recipes):
-    output = io.BytesIO()
-    output.write(b'Shopping list\n\n')
-    for name, data in get_shopping_data(recipes).items():
-        output.write(
-            f'{name} - {data["amount"]} {data["unit"]}\n'.encode('utf-8')
-        )
-    output.seek(0)
-    return output
-
-
-def pop_fields(queryset, fields):
-    [obj.pop(field) for obj in queryset for field in fields]
+    text = '\n'.join([
+        f'Список продуктов {date.today()}',
+        'Продукты:',
+        *get_ingredients(recipes),
+        'Рецепты:',
+        *[f'- {recipe.name}' for recipe in recipes],
+    ])
+    return text
