@@ -4,7 +4,7 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import IntegrityError
 
-from foodgram.models import Ingredient, Tag
+from recipes.models import Ingredient, Tag
 
 
 MODELS = {
@@ -12,7 +12,7 @@ MODELS = {
     'tags.csv': Tag
 }
 
-DATA_DIR = 'foodgram/fixtures/'
+DATA_DIR = 'recipes/fixtures/'
 
 
 class Command(BaseCommand):
@@ -52,7 +52,7 @@ class Command(BaseCommand):
                                 self.style.WARNING(
                                     'Используйте "ingredients" или "tags" '
                                     'для загрузки CSV-файлов из папки '
-                                    'foodgram/fixtures'
+                                    'recipes/fixtures'
                                 )
                             )
                     try:
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                     except Exception as e:
                         self.stdout.write(
                             self.style.ERROR(
-                                f'Ошибка при импорте данных из {file_name}: {e}'
+                                f'Ошибка при импорте данных из {file_name}:{e}'
                             )
                         )
             except FileNotFoundError:

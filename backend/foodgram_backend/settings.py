@@ -23,9 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'foodgram',
     'recipes',
-    'users',
     'api',
     'rest_framework',
     'rest_framework.authtoken',
@@ -139,6 +137,7 @@ REST_FRAMEWORK = {
 DJOSER = {
     'SERIALIZERS': {
         'user': 'api.serializers.UserSerializer',
+        'current_user': 'api.serializers.UserSerializer',
     },
     'HIDE_USERS': False,
     'PERMISSIONS': {
@@ -149,4 +148,4 @@ DJOSER = {
 }
 
 
-AUTH_USER_MODEL = 'users.FoodgramUser'
+AUTH_USER_MODEL = 'recipes.FoodgramUser'

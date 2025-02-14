@@ -2,7 +2,7 @@ from datetime import date
 
 from django.db.models import Sum
 
-from foodgram.models import RecipeIngredients
+from recipes.models import RecipeIngredients
 
 
 def get_ingredients(recipes):
