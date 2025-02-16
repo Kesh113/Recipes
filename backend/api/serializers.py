@@ -6,7 +6,7 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import (
-    MIN_VALUE, Ingredient, Recipe, RecipeIngredients, Tag, Subscribe
+    MIN_VALUE_AMOUNT, Ingredient, Recipe, RecipeIngredients, Tag, Subscribe
 )
 
 
@@ -116,7 +116,7 @@ class ReadRecipeSerializer(RecipeBaseSerializer):
 class WriteRecipeIngredientSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     amount = serializers.IntegerField(
-        validators=[MinValueValidator(MIN_VALUE)]
+        validators=[MinValueValidator(MIN_VALUE_AMOUNT)]
     )
 
     def validate_id(self, id):

@@ -1,17 +1,32 @@
-from django.contrib.auth import models as auth_models
+from django.contrib.auth import models as auth_models, validators
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 
 
+USERNAME_HELP_TEXT = ('Обязательное поле. Только буквы,'
+                      ' цифры и @/./+/-/_.')
+
 SELF_SUBSCRIBE_ERROR = 'Нельзя подписаться на самого себя.'
 
-MIN_VALUE = 1
+MIN_VALUE_COOKING_TIME = 1
+
+MIN_VALUE_AMOUNT = 1
 
 
 class FoodgramUser(auth_models.AbstractUser):
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        help_text=USERNAME_HELP_TEXT,
+        validators=(validators.UnicodeUsernameValidator(),),
+        verbose_name='Логин'
+    )
+    first_name = models.CharField('Имя', max_length=150)
+    last_name = models.CharField('Фамилия', max_length=150)
     email = models.EmailField(
-        'Email', max_length=254, unique=True, blank=False, null=False
+        'Электронная почта', max_length=254,
+        unique=True, blank=False, null=False
     )
     avatar = models.ImageField(
         upload_to='recipes/avatars/', verbose_name='Аватар',
@@ -81,12 +96,13 @@ class Tag(models.Model):
     name = models.CharField(max_length=32, unique=True,
                             verbose_name='Название')
     slug = models.SlugField(
-        max_length=32, unique=True
+        max_length=32, unique=True, verbose_name='Ключ поиска'
     )
 
     class Meta:
         verbose_name = 'Тэг'
         verbose_name_plural = 'Тэги'
+        ordering = 'name',
 
     def __str__(self):
         return self.name[:21]
@@ -99,7 +115,7 @@ class Recipe(models.Model):
     image = models.ImageField(upload_to='recipes/recipes', verbose_name='Фото')
     text = models.TextField('Описание')
     cooking_time = models.PositiveIntegerField(
-        validators=[MinValueValidator(MIN_VALUE)],
+        validators=[MinValueValidator(MIN_VALUE_COOKING_TIME)],
         verbose_name='Время приготовления (в минутах)',
     )
     pub_date = models.DateTimeField(auto_now_add=True,
@@ -110,10 +126,6 @@ class Recipe(models.Model):
         through='RecipeIngredients',
     )
     tags = models.ManyToManyField(Tag, verbose_name='Список тэгов')
-
-    @property
-    def favorites_count(self):
-        return self.favorite_recipe.count()
 
     class Meta:
         verbose_name = 'Рецепт'
@@ -134,7 +146,7 @@ class RecipeIngredients(models.Model):
         Ingredient, on_delete=models.CASCADE, verbose_name='Продукт'
     )
     amount = models.PositiveIntegerField(
-        validators=[MinValueValidator(MIN_VALUE)],
+        validators=[MinValueValidator(MIN_VALUE_AMOUNT)],
         verbose_name='Мера'
     )
 
@@ -152,22 +164,24 @@ class UserRecipeBaseModel(models.Model):
     user = models.ForeignKey(
         FoodgramUser, on_delete=models.CASCADE,
         verbose_name='Пользователь',
-        related_name='%(class)s_user'.lower()
     )
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE,
         verbose_name='Рецепт',
-        related_name='%(class)s_recipe'.lower()
     )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'recipe'],
-                name='%(class)s_unique_user_recipe'.lower()
+                name='%(class)s_unique_user_recipe'
             )
         ]
         abstract = True
+        default_related_name = '%(class)ss'
+
+    def __str__(self):
+        return f'У {self.user.username[:21]} в списке {self.recipe}'
 
 
 class Favorite(UserRecipeBaseModel):
@@ -175,14 +189,8 @@ class Favorite(UserRecipeBaseModel):
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
 
-    def __str__(self):
-        return f'У {self.user.username[:21]} в избранном {self.recipe}'
-
 
 class ShoppingCart(UserRecipeBaseModel):
     class Meta(UserRecipeBaseModel.Meta):
         verbose_name = 'Списки покупок'
         verbose_name_plural = 'Список покупок'
-
-    def __str__(self):
-        return f'У {self.user.username[:21]} в списке покупок {self.recipe}'

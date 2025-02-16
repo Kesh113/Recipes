@@ -1,8 +1,8 @@
 from django.urls import path
 
-from .views import RecipeRedirectView
+from .views import recipe_redirect
 
 
 urlpatterns = [
-    path('s/<int:pk>/', RecipeRedirectView.as_view(), name='short-link')
+    path('s/<int:pk>/', recipe_redirect, name='short-link')
 ]

@@ -37,14 +37,14 @@ class Command(BaseCommand):
                     reader = csv.DictReader(file)
                     objects = []
                     for row in reader:
-                        if Model.__name__ == 'Ingredient':
+                        if Model == Ingredient:
                             name, measurement_unit = (
                                 row['name'], row['measurement_unit']
                             )
                             objects.append(Model(
                                 name=name, measurement_unit=measurement_unit
                             ))
-                        elif Model.__name__ == 'Tag':
+                        elif Model == Tag:
                             name, slug = row['name'], row['slug']
                             objects.append(Model(name=name, slug=slug))
                         else:

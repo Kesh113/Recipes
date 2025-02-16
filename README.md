@@ -60,45 +60,27 @@ echo 'SQLITE=False' >> .env
 
 ### В контейнерах Docker
 
-3. **Установите Docker**
-
-```bash
-sudo apt install curl
-curl -fSL https://get.docker.com -o get-docker.sh
-sudo sh ./get-docker.sh
-sudo apt install docker-compose-plugin 
-```
-
-4. **Разверните контейнеры**
+3. **Разверните контейнеры**
 
 ```bash
 docker compose up -d
 ```
 
-5. **Выполните миграции и передайте статику с бэкэнда**
+4. **Выполните миграции и передайте статику с бэкэнда**
 
 ```bash
 docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py collectstatic
 ```
 
-6. **Загрузите фикстуры**
+5. **Загрузите фикстуры**
 
-CSV:
 ```bash
-docker compose exec backend python manage.py load_csv ingredients
-docker compose exec backend python manage.py load_csv tags
+docker compose exec backend python manage.py import_ingredients recipes/fixtures/ingredients.json
+docker compose exec backend python manage.py import_tags recipes/fixtures/tags.json
 ```
 
-**ЛИБО**
-
-JSON:
-```bash
-docker compose exec backend python manage.py load_json foodgram/fixtures/ingredients.json foodgram.Ingredient
-docker compose exec backend python manage.py load_json foodgram/fixtures/tags.json foodgram.Tag
-```
-
-7. **Cоздайте root пользователя**
+6. **Cоздайте супер пользователя**
 
 ```bash
 docker compose exec backend python manage.py createsuperuser
@@ -131,21 +113,12 @@ pip install -r requirements.txt
 python manage.py migrate
 ```
 
-JSON:
 ```bash
-python manage.py load_json foodgram/fixtures/ingredients.json foodgram.Ingredient
-python manage.py load_json foodgram/fixtures/tags.json foodgram.Tag
+python manage.py import_ingredients recipes/fixtures/ingredients.json
+python manage.py import_tags recipes/fixtures/tags.json
 ```
 
-**ЛИБО**
-
-CSV:
-```bash
-python manage.py load_csv ingredients
-python manage.py load_csv tags
-```
-
-6. **Создайте root пользователя и запустите бэкэнд сервер**
+6. **Создайте супер пользователя и запустите бэкэнд сервер**
 
 ```bash
 python manage.py createsuperuser
