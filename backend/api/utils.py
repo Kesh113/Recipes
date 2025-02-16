@@ -1,33 +1,27 @@
 from datetime import date
 
-from django.db.models import Sum
 
-from recipes.models import RecipeIngredients
+HEADER_ROW = 'Список продуктов пользователя {} на {}'
+
+INGREDIENT_ROW = '{}. {} - {} {}'
+
+RECIPES_ROW = '- {}'
 
 
-def get_ingredients(recipes):
-    ingredients_data = (
-        RecipeIngredients.objects
-        .filter(recipe__in=recipes)
-        .values('ingredient__name', 'ingredient__measurement_unit')
-        .annotate(total_amount=Sum('amount'))
-        .values(
-            'ingredient__name', 'ingredient__measurement_unit', 'total_amount'
-        )
-    )
-    return [
-        f'{i}. {data["ingredient__name"].capitalize()} - '
-        f'{data["total_amount"]} {data["ingredient__measurement_unit"][:4]}'
-        for i, data in enumerate(ingredients_data, 1)
+def generate_shopping_list(user, recipes, ingredients_data):
+    ingredient_rows = [
+        INGREDIENT_ROW.format(
+            i,
+            ingredient[0].name.capitalize(),
+            ingredient[1],
+            ingredient[0].measurement_unit
+        ) for i, ingredient in enumerate(ingredients_data.items(), 1)
     ]
-
-
-def generate_shopping_list(recipes):
     text = '\n'.join([
-        f'Список продуктов {date.today()}',
+        HEADER_ROW.format(user, date.today()),
         'Продукты:',
-        *get_ingredients(recipes),
+        *ingredient_rows,
         'Рецепты:',
-        *[f'- {recipe.name}' for recipe in recipes],
+        *[RECIPES_ROW.format(recipe.name) for recipe in recipes],
     ])
     return text

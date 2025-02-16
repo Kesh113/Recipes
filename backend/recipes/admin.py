@@ -185,7 +185,9 @@ class FoodgramUserAdmin(UserAdmin, RecipeCountMixin):
     @admin.display(description='Аватар')
     @mark_safe
     def avatar_thumbnail(self, user):
-        return 
+        if user.avatar:
+            return f'<img src="{user.avatar.url}" width="40" height="40" />'
+        return ''
 
     @admin.display(description='Подписок')
     def subscriber_count(self, user):

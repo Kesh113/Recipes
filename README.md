@@ -138,11 +138,18 @@ cd ../frontend
 npm run start
 ```
 
-9 **Пользуйтесь сервисом** 
+9. **Запустите сервер с тех. докой**
+
+```bash
+cd ../infra
+docker compose up -d
+```
+
+10. **Пользуйтесь сервисом** 
 
 [Бэкэнд](http://localhost:8000)
 [Фронтэнд](http://localhost:3000)
-
+[Redoc](http://localhost/api/docs/)
 
 ## Автор
 

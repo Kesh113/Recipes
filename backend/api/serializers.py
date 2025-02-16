@@ -1,5 +1,5 @@
+from pprint import pprint
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
 from django.db import transaction
 from djoser.serializers import UserSerializer as DjoserUserSerializer
 from drf_extra_fields.fields import Base64ImageField
@@ -16,11 +16,7 @@ REQUIRED_FIELD = 'Обязательное поле.'
 
 IMAGE_REQUIRED_FIELD = {'image': 'Обязательное поле'}
 
-INGREDIENTS_NOT_REPEAT = 'Ингредиенты не должны повторяться.'
-
-NOT_EXIST_INGREDIENT = 'Ингредиента с id={} не существует.'
-
-TAGS_NOT_REPEAT = 'Тэги не должны повторяться.'
+ITEMS_NOT_REPEAT = 'Объекты не должны повторяться: {}'
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -107,22 +103,17 @@ class ReadRecipeSerializer(RecipeBaseSerializer):
         )
 
     def get_is_favorited(self, recipe):
-        return self._get_is_related(recipe, 'favorite_recipe')
+        return self._get_is_related(recipe, 'favorites')
 
     def get_is_in_shopping_cart(self, recipe):
-        return self._get_is_related(recipe, 'shoppingcart_recipe')
+        return self._get_is_related(recipe, 'shoppingcarts')
 
 
 class WriteRecipeIngredientSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    amount = serializers.IntegerField(
-        validators=[MinValueValidator(MIN_VALUE_AMOUNT)]
+    id = serializers.PrimaryKeyRelatedField(
+        queryset=Ingredient.objects.all(), source='ingredient'
     )
-
-    def validate_id(self, id):
-        if not Ingredient.objects.filter(id=id).exists():
-            raise serializers.ValidationError(NOT_EXIST_INGREDIENT.format(id))
-        return id
+    amount = serializers.IntegerField(min_value=MIN_VALUE_AMOUNT)
 
 
 class WriteRecipeSerializer(RecipeBaseSerializer):
@@ -137,51 +128,87 @@ class WriteRecipeSerializer(RecipeBaseSerializer):
             raise serializers.ValidationError(IMAGE_REQUIRED_FIELD)
         return data
 
-    def validate_ingredients(self, ingredients):
-        if not ingredients:
+    def _validate_required_and_unique(self, items):
+        if not items:
             raise serializers.ValidationError(REQUIRED_FIELD)
-        ingredient_ids = [ingredient['id'] for ingredient in ingredients]
-        if len(ingredient_ids) != len(set(ingredient_ids)):
-            raise serializers.ValidationError(INGREDIENTS_NOT_REPEAT)
-        return ingredients
+        duplicates = [item for item in items if items.count(item) > 1]
+        if duplicates:
+            raise serializers.ValidationError(
+                ITEMS_NOT_REPEAT.format(duplicates)
+            )
+
+    def validate_ingredients(self, recipe_ingredient_data):
+        pprint(recipe_ingredient_data)
+        self._validate_required_and_unique([
+            ingredient_data['ingredient'] for ingredient_data
+            in recipe_ingredient_data
+        ])
+        return recipe_ingredient_data
 
     def validate_tags(self, tags):
-        if len(tags) != len(set(tags)):
-            raise serializers.ValidationError(TAGS_NOT_REPEAT)
+        self._validate_required_and_unique(tags)
         return tags
 
     @transaction.atomic
     def _get_new_recipe(
-        self, recipe, ingredients_data, tags_data, new_recipe_data=None
+        self, recipe, recipe_ingredient_data, tag_data
     ):
-        if new_recipe_data:
-            recipe.ingredients.clear()
-            super().update(recipe, new_recipe_data)
-        else:
-            recipe = super().create(recipe)
-        recipe.tags.set(tags_data)
+        recipe.tags.set(tag_data)
         RecipeIngredients.objects.bulk_create(
             RecipeIngredients(
                 recipe=recipe,
-                ingredient_id=ingredient_data['id'],
+                ingredient=ingredient_data['ingredient'],
                 amount=ingredient_data['amount']
-            ) for ingredient_data in ingredients_data)
+            ) for ingredient_data in recipe_ingredient_data)
         return recipe
 
     def create(self, recipe_data):
+        recipe_ingredient_data = recipe_data.pop('ingredients')
+        tag_data = recipe_data.pop('tags')
         return self._get_new_recipe(
-            recipe=recipe_data,
-            ingredients_data=recipe_data.pop('ingredients'),
-            tags_data=recipe_data.pop('tags')
+            recipe=super().create(recipe_data),
+            recipe_ingredient_data=recipe_ingredient_data,
+            tag_data=tag_data
         )
 
     def update(self, old_recipe, new_recipe_data):
+        recipe_ingredient_data = new_recipe_data.pop('ingredients')
+        tag_data = new_recipe_data.pop('tags')
+        old_recipe.ingredients.clear()
         return self._get_new_recipe(
-            recipe=old_recipe,
-            ingredients_data=new_recipe_data.pop('ingredients'),
-            tags_data=new_recipe_data.pop('tags'),
-            new_recipe_data=new_recipe_data
+            recipe=super().update(old_recipe, new_recipe_data),
+            recipe_ingredient_data=recipe_ingredient_data,
+            tag_data=tag_data,
         )
 
     def to_representation(self, recipe):
         return ReadRecipeSerializer(recipe, context=self.context).data
+
+
+class RecipeListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = 'id', 'name', 'image', 'cooking_time'
+        read_only_fields = 'id', 'name', 'image', 'cooking_time'
+
+
+class SubscribeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Subscribe
+        fields = 'subscribing',
+
+    def to_representation(self, subscribing):
+        recipes = subscribing.recipes.all()
+        recipes_limit = self.context.get('request').GET.get('recipes_limit')
+        if (
+            recipes_limit and isinstance(recipes_limit, str)
+            and recipes_limit.isdigit()
+        ):
+            recipes = recipes[:int(recipes_limit)]
+        data = UserSerializer(
+            subscribing, context={'request': self.context['request']}
+        ).data
+        data['recipes'] = RecipeListSerializer(recipes, many=True).data
+        data['recipes_count'] = recipes.count()
+        return data
