@@ -1,4 +1,3 @@
-from pprint import pprint
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from djoser.serializers import UserSerializer as DjoserUserSerializer
@@ -67,6 +66,20 @@ class RecipeBaseSerializer(serializers.ModelSerializer):
             'image', 'is_favorited', 'is_in_shopping_cart'
         )
 
+    def _get_is_related(self, recipe, related_name):
+        request = self.context.get('request')
+        return request and request.user.is_authenticated and (
+            getattr(recipe, related_name)
+            .filter(user=request.user)
+            .exists()
+        )
+
+    def get_is_favorited(self, recipe):
+        return self._get_is_related(recipe, 'favorites')
+
+    def get_is_in_shopping_cart(self, recipe):
+        return self._get_is_related(recipe, 'shoppingcarts')
+
 
 class ReadRecipeIngredientSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='ingredient.id', read_only=True)
@@ -92,21 +105,7 @@ class ReadRecipeSerializer(RecipeBaseSerializer):
             *RecipeBaseSerializer.Meta.fields,
             'id', 'tags', 'ingredients'
         )
-        read_only_fields = 'name', 'text', 'cooking_time', 'image', 'id'
-
-    def _get_is_related(self, recipe, related_name):
-        request = self.context.get('request')
-        return request and request.user.is_authenticated and (
-            getattr(recipe, related_name)
-            .filter(user=request.user)
-            .exists()
-        )
-
-    def get_is_favorited(self, recipe):
-        return self._get_is_related(recipe, 'favorites')
-
-    def get_is_in_shopping_cart(self, recipe):
-        return self._get_is_related(recipe, 'shoppingcarts')
+        read_only_fields = fields
 
 
 class WriteRecipeIngredientSerializer(serializers.Serializer):
@@ -138,7 +137,6 @@ class WriteRecipeSerializer(RecipeBaseSerializer):
             )
 
     def validate_ingredients(self, recipe_ingredient_data):
-        pprint(recipe_ingredient_data)
         self._validate_required_and_unique([
             ingredient_data['ingredient'] for ingredient_data
             in recipe_ingredient_data
@@ -175,8 +173,9 @@ class WriteRecipeSerializer(RecipeBaseSerializer):
         recipe_ingredient_data = new_recipe_data.pop('ingredients')
         tag_data = new_recipe_data.pop('tags')
         old_recipe.ingredients.clear()
+        updated_recipe = super().update(old_recipe, new_recipe_data)
         return self._get_new_recipe(
-            recipe=super().update(old_recipe, new_recipe_data),
+            recipe=updated_recipe,
             recipe_ingredient_data=recipe_ingredient_data,
             tag_data=tag_data,
         )
@@ -189,26 +188,26 @@ class RecipeListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = 'id', 'name', 'image', 'cooking_time'
-        read_only_fields = 'id', 'name', 'image', 'cooking_time'
+        read_only_fields = fields
 
 
-class SubscribeSerializer(serializers.ModelSerializer):
+class SubscribedUserSerializer(UserSerializer):
+    recipes = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Subscribe
-        fields = 'subscribing',
+    class Meta(UserSerializer.Meta):
+        fields = (*UserSerializer.Meta.fields, 'recipes')
+        read_only_fields = fields
 
-    def to_representation(self, subscribing):
-        recipes = subscribing.recipes.all()
-        recipes_limit = self.context.get('request').GET.get('recipes_limit')
-        if (
-            recipes_limit and isinstance(recipes_limit, str)
-            and recipes_limit.isdigit()
-        ):
+    def get_recipes(self, obj):
+        recipes = obj.recipes.all()
+        recipes_limit = self.context.get('request').GET.get(
+            'recipes_limit', 10**10
+        )
+        if recipes_limit:
             recipes = recipes[:int(recipes_limit)]
-        data = UserSerializer(
-            subscribing, context={'request': self.context['request']}
-        ).data
-        data['recipes'] = RecipeListSerializer(recipes, many=True).data
-        data['recipes_count'] = recipes.count()
-        return data
+        return RecipeListSerializer(recipes, many=True, read_only=True).data
+
+    def to_representation(self, user):
+        subscriptions = super().to_representation(user)
+        subscriptions['recipes_count'] = len(subscriptions['recipes'])
+        return subscriptions

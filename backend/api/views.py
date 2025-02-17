@@ -1,11 +1,9 @@
-from typing import OrderedDict
-
 from django.contrib.auth import get_user_model
+from django.db.models import Sum
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser.permissions import CurrentUserOrAdmin
 from djoser.views import UserViewSet
 from rest_framework import status, serializers
 from rest_framework.decorators import action
@@ -18,18 +16,19 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from .filters import NameFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
-    IngredientSerializer, RecipeListSerializer, SubscribeSerializer,
+    IngredientSerializer, RecipeListSerializer, SubscribedUserSerializer,
     TagSerializer, ReadRecipeSerializer, UserAvatarSerializer,
     WriteRecipeSerializer
 )
 from .utils import generate_shopping_list
 from recipes.models import (
-    Favorite, Ingredient, RecipeIngredients, ShoppingCart,
-    Tag, Recipe, Subscribe
+    Favorite, Ingredient, ShoppingCart, Tag, Recipe, Subscribe
 )
 
 
 User = get_user_model()
+
+RECIPE_NOT_EXIST = 'Рецепта с id={} не существует'
 
 ALREADY_IN_RECIPE_LIST = 'Рецепт "{}" уже добавлен'
 
@@ -73,20 +72,20 @@ class RecipeViewSet(ModelViewSet):
 
     def _handle_recipe_list_item(self, request, model):
         recipe = self.get_object()
-        if request.method == 'POST':
-            _, created = model.objects.get_or_create(
-                user=request.user, recipe=recipe
+        if request.method == 'DELETE':
+            get_object_or_404(model, user=request.user, recipe=recipe).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        _, created = model.objects.get_or_create(
+            user=request.user, recipe=recipe
+        )
+        if not created:
+            raise serializers.ValidationError(
+                {model.__name__: ALREADY_IN_RECIPE_LIST.format(recipe)}
             )
-            if not created:
-                raise serializers.ValidationError(
-                    {model.__name__: ALREADY_IN_RECIPE_LIST.format(recipe)}
-                )
-            return Response(
-                RecipeListSerializer(recipe).data,
-                status=status.HTTP_201_CREATED
-            )
-        get_object_or_404(model, user=request.user, recipe=recipe).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            RecipeListSerializer(recipe).data,
+            status=status.HTTP_201_CREATED
+        )
 
     @action(
         ['post', 'delete'], detail=True, url_path='favorite',
@@ -106,12 +105,13 @@ class RecipeViewSet(ModelViewSet):
         ['get'], detail=True, url_path='get-link',
     )
     def get_link(self, request, pk):
-        get_object_or_404(self.get_queryset(), pk=pk)
-        return Response({
-            'short-link': request.build_absolute_uri(
-                reverse('short-link', args=(pk,))
-            )
-        })
+        if self.get_queryset.filter(pk=pk).exists():
+            return Response({
+                'short-link': request.build_absolute_uri(
+                    reverse('short-link', args=(pk,))
+                )
+            })
+        raise serializers.ValidationError(RECIPE_NOT_EXIST.format(pk))
 
     @action(
         ['get'], detail=False, url_path='download_shopping_cart',
@@ -119,17 +119,13 @@ class RecipeViewSet(ModelViewSet):
     )
     def download_shopping_cart(self, request):
         recipes = Recipe.objects.filter(shoppingcarts__user=request.user)
-        ingredients_data = OrderedDict()
-        for recipe_ingredient in RecipeIngredients.objects.filter(
-            recipe__in=recipes
-        ):
-            ingredients_data[recipe_ingredient.ingredient] = (
-                ingredients_data.get(
-                    recipe_ingredient.ingredient, 0
-                ) + recipe_ingredient.amount
-            )
+        ingredients = (
+            Ingredient.objects.filter(recipes__in=recipes)
+            .annotate(total_amount=Sum('recipe_ingredients__amount'))
+            .order_by('name')
+        )
         return FileResponse(
-            generate_shopping_list(request.user, recipes, ingredients_data),
+            generate_shopping_list(request.user, recipes, ingredients),
             content_type='text/plain; charset=utf-8',
             as_attachment=True,
             filename=FILENAME
@@ -139,29 +135,28 @@ class RecipeViewSet(ModelViewSet):
 class FoodgramUserViewSet(UserViewSet):
     def get_permissions(self):
         if self.action == 'me':
-            self.permission_classes = (IsAuthenticated,)
+            return (IsAuthenticated(),)
         return super().get_permissions()
 
     @action(
-        ['put', 'delete'], detail=False, url_path='me/avatar',
-        permission_classes=[CurrentUserOrAdmin]
+        ['put', 'delete'], detail=False, url_path='me/avatar'
     )
     def me_avatar(self, request):
         user = request.user
-        if request.method == 'PUT':
-            serializer = UserAvatarSerializer(user, data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        user.avatar.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if request.method == 'DELETE':
+            user.avatar.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = UserAvatarSerializer(user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(
         ['get'], detail=False, url_path='subscriptions',
         permission_classes=[IsAuthenticated]
     )
     def subscriptions(self, request):
-        subscribe_data = SubscribeSerializer(
+        subscribe_data = SubscribedUserSerializer(
             self.get_queryset().filter(
                 authors__user=request.user
             ), context={'request': request}, many=True
@@ -176,21 +171,21 @@ class FoodgramUserViewSet(UserViewSet):
     )
     def create_delete_subscribe(self, request, id=None):
         subscribing = self.get_object()
-        if request.method == 'POST':
-            if request.user == subscribing:
-                raise serializers.ValidationError(SELF_SUBSCRIBE_ERROR)
-            _, created = Subscribe.objects.get_or_create(
-                user=request.user, subscribing=subscribing
+        if request.method == 'DELETE':
+            get_object_or_404(
+                Subscribe, user=request.user, subscribing=subscribing
+            ).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        if request.user == subscribing:
+            raise serializers.ValidationError(SELF_SUBSCRIBE_ERROR)
+        _, created = Subscribe.objects.get_or_create(
+            user=request.user, subscribing=subscribing
+        )
+        if not created:
+            raise serializers.ValidationError(
+                {'subscribe': ALREADY_SUBSCRIBED_ERROR.format(subscribing)}
             )
-            if not created:
-                raise serializers.ValidationError(
-                    {'subscribe': ALREADY_SUBSCRIBED_ERROR.format(subscribing)}
-                )
-            subscribing_data = SubscribeSerializer(
-                subscribing, context={'request': request}
-            ).data
-            return Response(subscribing_data, status=status.HTTP_201_CREATED)
-        get_object_or_404(
-            Subscribe, user=request.user, subscribing=subscribing
-        ).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        subscribing_data = SubscribedUserSerializer(
+            subscribing, context={'request': request}
+        ).data
+        return Response(subscribing_data, status=status.HTTP_201_CREATED)

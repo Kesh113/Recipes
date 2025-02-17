@@ -31,10 +31,10 @@ class CookingTimeFilter(admin.SimpleListFilter):
             recipe.cooking_time for recipe in model_admin.model.objects.all()
         ))
         count = len(cooking_times)
-        if count < 4:
+        if count < 3:
             return
-        threshold_25 = cooking_times[count // 4 - 1]
-        threshold_75 = cooking_times[(count * 3) // 4 - 1]
+        threshold_25 = cooking_times[count // 4]
+        threshold_75 = cooking_times[(count * 3) // 4]
         self.cooking_time_filters = {
             'fast': (cooking_times[0], threshold_25),
             'middle': (threshold_25, threshold_75),
@@ -68,7 +68,7 @@ class RecipeAdmin(admin.ModelAdmin):
     readonly_fields = 'favorites_count',
     inlines = [RecipeIngredientsAdmin]
 
-    @admin.display(description='Кол-во в избранном')
+    @admin.display(description='В избранном')
     def favorites_count(self, recipe):
         return recipe.favorites.count()
 
@@ -80,7 +80,7 @@ class RecipeAdmin(admin.ModelAdmin):
     @admin.display(description='Тэги')
     @mark_safe
     def tags_list(self, recipe):
-        return '<br>'.join(f'{tag.name}' for tag in recipe.tags.all())
+        return '<br>'.join(tag.name for tag in recipe.tags.all())
 
     @admin.display(description='Продукты')
     @mark_safe
@@ -93,7 +93,7 @@ class RecipeAdmin(admin.ModelAdmin):
 
 
 class RecipeCountMixin:
-    @admin.display(description='Рецепты')
+    @admin.display(description='Рецептов')
     def recipe_count(self, model):
         return model.recipes.count()
 

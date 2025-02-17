@@ -8,20 +8,19 @@ INGREDIENT_ROW = '{}. {} - {} {}'
 RECIPES_ROW = '- {}'
 
 
-def generate_shopping_list(user, recipes, ingredients_data):
+def generate_shopping_list(user, recipes, ingredients):
     ingredient_rows = [
         INGREDIENT_ROW.format(
             i,
-            ingredient[0].name.capitalize(),
-            ingredient[1],
-            ingredient[0].measurement_unit
-        ) for i, ingredient in enumerate(ingredients_data.items(), 1)
+            ingredient.name.capitalize(),
+            ingredient.total_amount,
+            ingredient.measurement_unit
+        ) for i, ingredient in enumerate(ingredients, 1)
     ]
-    text = '\n'.join([
+    return '\n'.join([
         HEADER_ROW.format(user, date.today()),
         'Продукты:',
         *ingredient_rows,
         'Рецепты:',
-        *[RECIPES_ROW.format(recipe.name) for recipe in recipes],
+        *[RECIPES_ROW.format(recipe) for recipe in recipes],
     ])
-    return text
