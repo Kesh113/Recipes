@@ -4,21 +4,13 @@ from django.core.management import base
 
 
 class ImportJsonCommand(base.BaseCommand):
-    help = None
+    help = 'Импорт JSON файла.'
     model = None
-    single_object_name = None
 
     def add_arguments(self, parser):
         parser.add_argument(
             'json_file_path', help='Путь к JSON файлу.'
         )
-
-    def _declension_word(self, count):
-        if count % 10 == 1 and count % 100 != 11:
-            return self.single_object_name
-        elif count % 10 in range(2, 5) and count % 100 not in range(12, 15):
-            return f'{self.single_object_name}а'
-        return f'{self.single_object_name}ов'
 
     def handle(self, *args, **options):
         try:
@@ -30,7 +22,8 @@ class ImportJsonCommand(base.BaseCommand):
                 )
             total_objects = len(objects)
             self.stdout.write(self.style.SUCCESS(
-                f'{total_objects} {self._declension_word(total_objects)} '
+                f'{total_objects} '
+                f'{self.model._meta.verbose_name_plural.lower()} '
                 f'успешно импортировано из {file_path}'
             ))
         except Exception as e:

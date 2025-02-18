@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, models
 from django.contrib.auth.admin import UserAdmin
 from django.utils.safestring import mark_safe
 
@@ -10,6 +10,13 @@ from .models import (
 
 
 User = get_user_model()
+
+admin.site.unregister(models.Group)
+
+CHOICES = (
+    ('yes', 'Да'),
+    ('no', 'Нет'),
+)
 
 
 class RecipeIngredientsAdmin(admin.TabularInline):
@@ -36,8 +43,8 @@ class CookingTimeFilter(admin.SimpleListFilter):
         threshold_25 = cooking_times[count // 4]
         threshold_75 = cooking_times[(count * 3) // 4]
         self.cooking_time_filters = {
-            'fast': (cooking_times[0], threshold_25),
-            'middle': (threshold_25, threshold_75),
+            'fast': (cooking_times[0], threshold_25 - 1),
+            'middle': (threshold_25, threshold_75 - 1),
             'slow': (threshold_75, cooking_times[-1])
         }
         fast = self._get_filter_recipes('fast').count()
@@ -98,18 +105,32 @@ class RecipeCountMixin:
         return model.recipes.count()
 
 
+class HasRecipeFilter(admin.SimpleListFilter):
+    title = 'Есть в рецептах'
+    parameter_name = 'has_recipe'
+
+    def lookups(self, request, model_admin):
+        return CHOICES
+
+    def queryset(self, request, ingredients):
+        if self.value() == 'yes':
+            return ingredients.filter(recipes__isnull=False).distinct()
+        elif self.value() == 'no':
+            return ingredients.filter(recipes__isnull=True)
+        return ingredients
+
+
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin, RecipeCountMixin):
     list_display = ('name', 'measurement_unit', 'recipe_count')
     search_fields = ('name', 'measurement_unit')
-    list_filter = ('measurement_unit',)
+    list_filter = ('measurement_unit', HasRecipeFilter)
 
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin, RecipeCountMixin):
     list_display = ('name', 'slug', 'recipe_count')
     search_fields = ('name', 'slug')
-    list_filter = ('name',)
 
 
 @admin.register(Favorite, ShoppingCart)
@@ -122,10 +143,6 @@ class RecipeListAdmin(admin.ModelAdmin):
 class RelatedObjectsFilter(admin.SimpleListFilter):
     related_name = None
     title = None
-    CHOICES = (
-        ('yes', 'Да'),
-        ('no', 'Нет'),
-    )
 
     def __init__(self, request, params, model, model_admin):
         super().__init__(request, params, model, model_admin)
@@ -135,7 +152,7 @@ class RelatedObjectsFilter(admin.SimpleListFilter):
         }
 
     def lookups(self, request, model_admin):
-        return self.CHOICES
+        return CHOICES
 
     def queryset(self, request, users):
         if self.value():

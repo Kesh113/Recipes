@@ -108,6 +108,9 @@ USE_L10N = True
 
 USE_TZ = True
 
+DATE_FORMAT = 'd E Y'
+DATE_FORMAT_SHORT = 'd.m.Y'
+
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'collected_static/static'

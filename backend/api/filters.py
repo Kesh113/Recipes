@@ -7,6 +7,17 @@ from recipes.models import Ingredient, Recipe, Tag
 User = get_user_model()
 
 
+class LimitFilter(django_filters.FilterSet):
+    limit = django_filters.NumberFilter(method='filter_limit')
+
+    class Meta:
+        model = User
+        fields = 'limit',
+
+    def filter_limit(self, authors, name, value):
+        return authors[:int(value)] if value else authors
+
+
 class NameFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(
         field_name='name', lookup_expr='startswith'

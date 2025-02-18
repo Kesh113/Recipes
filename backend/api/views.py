@@ -1,8 +1,11 @@
+from datetime import date
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils.formats import date_format
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from rest_framework import status, serializers
@@ -13,7 +16,7 @@ from rest_framework.permissions import (
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 
-from .filters import NameFilter, RecipeFilter
+from .filters import LimitFilter, NameFilter, RecipeFilter
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     IngredientSerializer, RecipeListSerializer, SubscribedUserSerializer,
@@ -32,7 +35,7 @@ RECIPE_NOT_EXIST = 'Рецепта с id={} не существует'
 
 ALREADY_IN_RECIPE_LIST = 'Рецепт "{}" уже добавлен'
 
-FILENAME = 'shopping_list.txt'
+FILENAME = 'shopping_list({}).txt'
 
 SELF_SUBSCRIBE_ERROR = {'subscribe': 'Нельзя подписаться на самого себя.'}
 
@@ -105,13 +108,13 @@ class RecipeViewSet(ModelViewSet):
         ['get'], detail=True, url_path='get-link',
     )
     def get_link(self, request, pk):
-        if self.get_queryset.filter(pk=pk).exists():
-            return Response({
-                'short-link': request.build_absolute_uri(
-                    reverse('short-link', args=(pk,))
-                )
-            })
-        raise serializers.ValidationError(RECIPE_NOT_EXIST.format(pk))
+        if not self.get_queryset().filter(pk=pk).exists():
+            raise serializers.ValidationError(RECIPE_NOT_EXIST.format(pk))
+        return Response({
+            'short-link': request.build_absolute_uri(
+                reverse('short-link', args=(pk,))
+            )
+        })
 
     @action(
         ['get'], detail=False, url_path='download_shopping_cart',
@@ -128,11 +131,16 @@ class RecipeViewSet(ModelViewSet):
             generate_shopping_list(request.user, recipes, ingredients),
             content_type='text/plain; charset=utf-8',
             as_attachment=True,
-            filename=FILENAME
+            filename=FILENAME.format(
+                date_format(date.today(), settings.DATE_FORMAT_SHORT)
+            )
         )
 
 
 class FoodgramUserViewSet(UserViewSet):
+    filter_backends = DjangoFilterBackend,
+    filterset_class = LimitFilter
+
     def get_permissions(self):
         if self.action == 'me':
             return (IsAuthenticated(),)
@@ -157,9 +165,9 @@ class FoodgramUserViewSet(UserViewSet):
     )
     def subscriptions(self, request):
         subscribe_data = SubscribedUserSerializer(
-            self.get_queryset().filter(
+            self.filter_queryset(self.get_queryset().filter(
                 authors__user=request.user
-            ), context={'request': request}, many=True
+            )), context={'request': request}, many=True
         ).data
         return self.get_paginated_response(
             self.paginate_queryset(subscribe_data)
@@ -170,22 +178,21 @@ class FoodgramUserViewSet(UserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def create_delete_subscribe(self, request, id=None):
-        subscribing = self.get_object()
+        author = self.get_object()
         if request.method == 'DELETE':
             get_object_or_404(
-                Subscribe, user=request.user, subscribing=subscribing
+                Subscribe, user=request.user, subscribing=author
             ).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        if request.user == subscribing:
+        if request.user == author:
             raise serializers.ValidationError(SELF_SUBSCRIBE_ERROR)
         _, created = Subscribe.objects.get_or_create(
-            user=request.user, subscribing=subscribing
+            user=request.user, subscribing=author
         )
         if not created:
             raise serializers.ValidationError(
-                {'subscribe': ALREADY_SUBSCRIBED_ERROR.format(subscribing)}
+                {'subscribe': ALREADY_SUBSCRIBED_ERROR.format(author)}
             )
-        subscribing_data = SubscribedUserSerializer(
-            subscribing, context={'request': request}
-        ).data
-        return Response(subscribing_data, status=status.HTTP_201_CREATED)
+        return Response(SubscribedUserSerializer(
+            author, context={'request': request}
+        ).data, status=status.HTTP_201_CREATED)
