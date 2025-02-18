@@ -194,9 +194,6 @@ class SubscribedUserSerializer(UserSerializer):
         fields = (*UserSerializer.Meta.fields, 'recipes', 'recipes_count')
         read_only_fields = fields
 
-    def _get_recipes_limit(self):
-        return 
-
     def get_recipes(self, author):
         return RecipeListSerializer(author.recipes.all()[
             :int(self.context.get('request').GET.get('recipes_limit', 10**10))
