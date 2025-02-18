@@ -5,7 +5,8 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import (
-    MIN_VALUE_AMOUNT, Ingredient, Recipe, RecipeIngredients, Tag, Subscribe
+    MIN_VALUE_AMOUNT, MIN_VALUE_COOKING_TIME, Ingredient, Recipe,
+    RecipeIngredients, Tag, Subscribe
 )
 
 
@@ -109,6 +110,7 @@ class WriteRecipeIngredientSerializer(serializers.Serializer):
 class WriteRecipeSerializer(serializers.ModelSerializer):
     ingredients = WriteRecipeIngredientSerializer(many=True, required=True)
     image = Base64ImageField(required=False)
+    cooking_time = serializers.IntegerField(min_value=MIN_VALUE_COOKING_TIME)
 
     class Meta:
         model = Recipe
@@ -143,7 +145,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         return tags
 
     @transaction.atomic
-    def _get_new_recipe(
+    def _set_recipe_ingredients_and_tags(
         self, recipe, recipe_ingredient_data, tag_data
     ):
         recipe.tags.set(tag_data)
@@ -158,7 +160,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
     def create(self, recipe_data):
         recipe_ingredient_data = recipe_data.pop('ingredients')
         tag_data = recipe_data.pop('tags')
-        return self._get_new_recipe(
+        return self._set_recipe_ingredients_and_tags(
             recipe=super().create(recipe_data),
             recipe_ingredient_data=recipe_ingredient_data,
             tag_data=tag_data
@@ -168,7 +170,7 @@ class WriteRecipeSerializer(serializers.ModelSerializer):
         recipe_ingredient_data = new_recipe_data.pop('ingredients')
         tag_data = new_recipe_data.pop('tags')
         old_recipe.ingredients.clear()
-        self._get_new_recipe(
+        self._set_recipe_ingredients_and_tags(
             recipe=old_recipe,
             recipe_ingredient_data=recipe_ingredient_data,
             tag_data=tag_data,
@@ -188,7 +190,7 @@ class RecipeListSerializer(serializers.ModelSerializer):
 
 class SubscribedUserSerializer(UserSerializer):
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
+    recipes_count = serializers.IntegerField(source='recipes.count')
 
     class Meta(UserSerializer.Meta):
         fields = (*UserSerializer.Meta.fields, 'recipes', 'recipes_count')
@@ -198,6 +200,3 @@ class SubscribedUserSerializer(UserSerializer):
         return RecipeListSerializer(author.recipes.all()[
             :int(self.context.get('request').GET.get('recipes_limit', 10**10))
         ], many=True, read_only=True).data
-
-    def get_recipes_count(self, author):
-        return author.recipes.count()

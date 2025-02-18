@@ -1,5 +1,4 @@
 from datetime import date
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
 from django.http import FileResponse
@@ -40,6 +39,8 @@ FILENAME = 'shopping_list({}).txt'
 SELF_SUBSCRIBE_ERROR = {'subscribe': 'Нельзя подписаться на самого себя.'}
 
 ALREADY_SUBSCRIBED_ERROR = 'Вы уже подписаны на "{}"'
+
+DATE_FORMAT_SHORT = 'd.m.Y'
 
 
 class IngredientViewSet(ReadOnlyModelViewSet):
@@ -132,7 +133,7 @@ class RecipeViewSet(ModelViewSet):
             content_type='text/plain; charset=utf-8',
             as_attachment=True,
             filename=FILENAME.format(
-                date_format(date.today(), settings.DATE_FORMAT_SHORT)
+                date_format(date.today(), DATE_FORMAT_SHORT)
             )
         )
 

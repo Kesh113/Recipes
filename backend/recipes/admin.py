@@ -11,6 +11,7 @@ from .models import (
 
 User = get_user_model()
 
+admin.site.site_header = 'Администрирование приложения «Recipes»'
 admin.site.unregister(models.Group)
 
 CHOICES = (
@@ -52,8 +53,8 @@ class CookingTimeFilter(admin.SimpleListFilter):
         slow = self._get_filter_recipes('slow').count()
         return (
             ('fast', f'До {threshold_25} мин ({fast})'),
-            ('middle', f'До {threshold_75} мин ({middle})'),
-            ('slow', f'{threshold_75} минут и более ({slow})')
+            ('middle', f'От {threshold_25} до {threshold_75} мин ({middle})'),
+            ('slow', f'От {threshold_75} минут и более ({slow})')
         )
 
     def queryset(self, request, recipes):
