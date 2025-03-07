@@ -2,11 +2,11 @@
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-3.2+-green.svg)](https://www.djangoproject.com/)
 
-# Foodgram
+# Recipes
 
 ## Описание проекта
 
-**Foodgram** — это веб-приложение, созданное на Django, которое позволяет пользователям делиться своими любимыми кулинарными рецептами, находить вдохновение и создавать списки покупок. Это своего рода кулинарная социальная сеть, где вы можете подписываться на других пользователей, добавлять рецепты в избранное и многое другое.
+**Recipes** — это веб-приложение, созданное на Django, которое позволяет пользователям делиться своими любимыми кулинарными рецептами, находить вдохновение и создавать списки покупок. Это своего рода кулинарная социальная сеть, где вы можете подписываться на других пользователей, добавлять рецепты в избранное и многое другое.
 
 ### Основные функции:
 
@@ -38,7 +38,7 @@
 1. **Клонируйте репозиторий**:
 
 ```bash
-git clone git@github.com:Kesh113/foodgram.git
+git clone git@github.com:Kesh113/recipes.git
 cd foodgram
 ```
 
@@ -47,9 +47,9 @@ cd foodgram
 Вместо значений переменных подставьте свои.
 
 ```bash
-echo 'POSTGRES_DB=foodgram' >> .env
-echo 'POSTGRES_USER=foodgram_user' >> .env
-echo 'POSTGRES_PASSWORD=foodgram_password' >> .env
+echo 'POSTGRES_DB=recipes' >> .env
+echo 'POSTGRES_USER=recipes_user' >> .env
+echo 'POSTGRES_PASSWORD=recipes_password' >> .env
 echo 'DB_HOST=db' >> .env
 echo 'DB_PORT=5432' >> .env
 echo 'SECRET_KEY=secret_key' >> .env
@@ -155,6 +155,6 @@ docker compose up -d
 
 Широкожухов Артем Андреевич
 
-[Мой Foodgram](https://www.ya-kesh.ru/)
+[Мой Recipes](https://www.ya-kesh.ru/)
 
 [GitHub](https://github.com/Kesh113)
